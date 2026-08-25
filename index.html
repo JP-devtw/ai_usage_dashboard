@@ -7,70 +7,162 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230b1220'/%3E%3Crect x='5' y='17' width='5' height='10' rx='1.5' fill='%2322c55e'/%3E%3Crect x='13.5' y='11' width='5' height='16' rx='1.5' fill='%23fbbf24'/%3E%3Crect x='22' y='6' width='5' height='21' rx='1.5' fill='%2338bdf8'/%3E%3C/svg%3E">
 <style>
   :root {
-    --bg: #0b1220;
-    --panel: #121b30;
-    --panel-edge: #24334f;
-    --text: #dbe6f7;
-    --muted: #7e91b3;
-    --sky: #38bdf8;
+    color-scheme: dark;
+    --bg: #0a0a0c;
+    --surface: #17181b;
+    --surface-2: #1e1f23;
+    --surface-rgb: 23, 24, 27;
+    --border: #2c2d32;
+    --border-rgb: 44, 45, 50;
+    --text: #e8e8ea;
+    --text-muted: #9a9ba3;
+    --text-faint: #5c5d64;
+    --accent: #38bdf8;
+    --accent-rgb: 56, 189, 248;
+    --accent-2: #f59e0b;
+    --ok: #22c55e;
+    --ok-rgb: 34, 197, 94;
+    --warn: #eab308;
+    --warn-rgb: 234, 179, 8;
+    --danger: #ef4444;
+    --danger-rgb: 239, 68, 68;
+    --heat-1: #163a5c;
+    --heat-2: #1c5c92;
+    --heat-3: #268fd6;
+    --heat-4: #5fd0ff;
+    --shadow-card: 0 1px 2px rgba(0,0,0,.3), 0 6px 20px rgba(0,0,0,.28);
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --bg: #f4f6fb;
+    --surface: #ffffff;
+    --surface-2: #eef1f7;
+    --surface-rgb: 255, 255, 255;
+    --border: #dde3ee;
+    --border-rgb: 210, 218, 232;
+    --text: #1b2432;
+    --text-muted: #64748b;
+    --text-faint: #94a3b8;
+    --accent: #0284c7;
+    --accent-rgb: 2, 132, 199;
+    --accent-2: #b45309;
+    --ok: #16a34a;
+    --ok-rgb: 22, 163, 74;
+    --warn: #ca8a04;
+    --warn-rgb: 202, 138, 4;
+    --danger: #dc2626;
+    --danger-rgb: 220, 38, 38;
+    --heat-1: #dbeafe;
+    --heat-2: #93c5fd;
+    --heat-3: #3b82f6;
+    --heat-4: #1d4ed8;
+    --shadow-card: 0 1px 2px rgba(15,23,42,.06), 0 6px 20px rgba(15,23,42,.06);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: radial-gradient(1200px 600px at 70% -10%, #16233f 0%, var(--bg) 60%);
+    background: var(--bg);
     color: var(--text);
     font-family: "Segoe UI", "Microsoft JhengHei", system-ui, sans-serif;
     min-height: 100vh;
     padding: 20px clamp(10px, 3vw, 40px);
   }
 
+  /* ---------- 數字與時間排版防抖動 (Tabular Nums) ---------- */
+  .bar-text, .token-val, .token-time, .sub, .ctx-pct, .mini-name, #statusText, .reset-mark {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
   header {
-    display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
     margin-bottom: 18px;
   }
-  h1 { font-size: 20px; letter-spacing: 3px; font-weight: 700; }
-  h1 .pix { color: var(--sky); }
+  h1 { font-size: 19px; letter-spacing: 2px; font-weight: 700; }
+  h1 .pix { color: var(--accent); }
   #status {
-    font-size: 12px; color: var(--muted);
+    font-size: 12px; color: var(--text-muted);
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 10px; border: 1px solid var(--panel-edge); border-radius: 999px;
+    padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px;
   }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: #64748b; flex: none; }
-  .dot.ok  { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
-  .dot.err { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); flex: none; }
+  .dot.ok  { background: var(--ok); }
+  .dot.err { background: var(--danger); }
   .spacer { flex: 1; }
   button {
     font: inherit; color: var(--text); cursor: pointer;
-    background: #1a2740; border: 1px solid var(--panel-edge); border-radius: 8px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
     padding: 6px 14px;
+    transition: border-color .2s, background-color .2s;
   }
-  button:hover { border-color: var(--sky); }
-  button.primary { background: #0c4a6e; border-color: #0284c7; }
-  button.danger  { background: #450a0a; border-color: #b91c1c; }
-  #langToggle { font-size: 12px; padding: 6px 12px; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.danger  { background: rgba(var(--danger-rgb), .12); border-color: var(--danger); color: var(--danger); }
+  #langToggle, #themeToggle, #viewToggle, #notifyToggle { font-size: 12px; padding: 6px 12px; }
+
+  /* ---------- 區塊標題(目前狀態 / 趨勢) ---------- */
+  .section-heading {
+    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 700;
+    color: var(--text-muted); margin: 22px 0 8px;
+  }
+  #trendsSection .section-heading { margin-top: 0; }
+  .widget-mode .section-heading { display: none; }
 
   /* ---------- 提供商橫列 ---------- */
-  #rows { display: flex; flex-direction: column; gap: 14px; }
+  #rows { display: flex; flex-direction: column; gap: 12px; }
   .row {
+    position: relative;
     display: grid; grid-template-columns: 170px 1fr; gap: 14px; align-items: center;
-    background: linear-gradient(180deg, #16223c, var(--panel));
-    border: 1px solid var(--panel-edge); border-radius: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border); border-radius: 14px;
     padding: 14px 16px;
-    box-shadow: 0 4px 18px rgba(0,0,0,.35);
+    box-shadow: var(--shadow-card);
+    transition: border-color .3s, box-shadow .3s, transform .2s;
   }
+  
+  /* 高危臨界外框光圈 (Critical Ambient Glow) */
+  .row.critical-glow {
+    border-color: rgba(var(--danger-rgb), .7);
+    animation: criticalPulse 2s ease-in-out infinite;
+  }
+  @keyframes criticalPulse {
+    0%, 100% { box-shadow: 0 0 10px rgba(var(--danger-rgb), .25), var(--shadow-card); }
+    50%      { box-shadow: 0 0 20px rgba(var(--danger-rgb), .6), var(--shadow-card); }
+  }
+
+  /* Hover 快捷動作按鈕 (Quick Action Bar) */
+  .row-actions {
+    position: absolute; top: 12px; right: 14px;
+    display: flex; gap: 6px; z-index: 5;
+    opacity: 0; transition: opacity .2s ease;
+  }
+  .row:hover .row-actions { opacity: 1; }
+  .row-action-btn {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 2px 7px; font-size: 11px;
+    color: var(--text-muted); cursor: pointer;
+  }
+  .row-action-btn:hover { color: var(--text); border-color: var(--accent); }
+
   .prov { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .prov-name {
-    font-size: 18px; font-weight: 700; letter-spacing: 1px;
+    font-size: 17px; font-weight: 700; letter-spacing: .3px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     display: flex; align-items: center; gap: 8px;
   }
   .drag-handle {
-    cursor: grab; color: var(--muted); font-size: 15px;
+    cursor: grab; color: var(--text-muted); font-size: 15px;
     user-select: none; flex: none;
   }
   .drag-handle:active { cursor: grabbing; }
+  .collapse-btn {
+    background: none; border: none; padding: 0; margin: 0; font: inherit;
+    color: var(--text-muted); cursor: pointer; flex: none; width: 12px;
+  }
+  .collapse-btn:hover { color: var(--text); }
+  .row.collapsed { padding-top: 10px; padding-bottom: 10px; }
   .row.dragging { opacity: .45; }
-  .row.drag-over-top    { box-shadow: 0 -3px 0 var(--sky), 0 4px 18px rgba(0,0,0,.35); }
-  .row.drag-over-bottom { box-shadow: 0  3px 0 var(--sky), 0 4px 18px rgba(0,0,0,.35); }
+  .row.drag-over-top    { box-shadow: 0 -3px 0 var(--accent), var(--shadow-card); }
+  .row.drag-over-bottom { box-shadow: 0  3px 0 var(--accent), var(--shadow-card); }
 
   /* 觸控/窄螢幕:拖拉不可用,改用上下移動鍵 */
   .move-btns { display: none; gap: 6px; }
@@ -80,26 +172,72 @@
     .move-btns { display: flex; }
     .drag-handle { display: none; }
   }
-  .prov-meta { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
-  .prov-err { font-size: 11px; color: #fca5a5; line-height: 1.3; }
+  .prov-meta { font-size: 11px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+  .prov-err { font-size: 11px; color: var(--danger); line-height: 1.3; }
   .edit-btn { align-self: flex-start; font-size: 12px; padding: 3px 10px; }
 
+  /* .metrics 依時間窗分左右兩欄:sess/lt 使用量條已合併距重置倒數(見 hpCell),不再各佔一條血條 */
   .metrics {
-    display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 12px;
+    grid-template-areas:
+      "sess lt"
+      "ctx tokens";
   }
-  .metric { min-width: 0; }
-  .metric-label {
-    font-size: 11px; color: var(--muted); letter-spacing: 1px;
-    margin-bottom: 5px; display: flex; justify-content: space-between; gap: 4px;
-    white-space: nowrap; overflow: hidden;
-  }
-  .src { color: #475a7d; font-size: 10px; }
-  .sub { font-size: 11px; color: var(--muted); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  /* ---------- 血條 ---------- */
+  /* 精簡視圖模式 (Compact Mode) */
+  body.compact-mode .metrics {
+    grid-template-areas: "sess lt";
+  }
+  body.compact-mode .metrics > .metric:is(:nth-child(2), :nth-child(3)) {
+    display: none;
+  }
+  body.compact-mode #trendsSection {
+    display: none;
+  }
+
+  .metrics > .metric:nth-child(1) { grid-area: sess; }
+  .metrics > .metric:nth-child(2) { grid-area: ctx; }
+  .metrics > .metric:nth-child(3) { grid-area: tokens; }
+  .metrics > .metric:nth-child(4) { grid-area: lt; }
+  .metric { min-width: 0; }
+  .metrics > .metric:is(:nth-child(1), :nth-child(4)) .bar { height: 32px; border-radius: 9px; }
+  .metrics > .metric:is(:nth-child(1), :nth-child(4)) .bar-text { font-size: 14px; }
+  .metrics > .metric:is(:nth-child(1), :nth-child(4)) .metric-label { font-size: 12px; color: var(--text); }
+  .metrics > .metric:is(:nth-child(1), :nth-child(4)) .sub { font-size: 12px; color: var(--text-muted); }
+  .metrics > .metric:is(:nth-child(2), :nth-child(3)) { opacity: .92; }
+  .metrics > .metric:is(:nth-child(2), :nth-child(3)) .bar { height: 20px; }
+  .metrics > .metric:is(:nth-child(2), :nth-child(3)) .bar-text { font-size: 11px; }
+  .metric-label {
+    font-size: 11px; color: var(--text-muted); letter-spacing: .4px;
+    margin-bottom: 6px; display: flex; justify-content: space-between; gap: 4px;
+    white-space: nowrap; overflow: hidden; text-transform: uppercase; font-weight: 600;
+  }
+  .src { color: var(--text-faint); font-size: 10px; text-transform: none; font-weight: 500; }
+  .sub { font-size: 11px; color: var(--text-muted); margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .reset-mark.reset-soon { color: var(--warn); font-weight: 700; }
+
+  /* ---------- Token 顯示 ---------- */
+  .token-display {
+    position: relative; height: 20px; border-radius: 7px;
+    background: var(--surface-2); border: 1px solid var(--border);
+    overflow: hidden; display: flex; align-items: center; justify-content: space-around;
+    padding: 0 4px; font-family: monospace;
+  }
+  .token-item {
+    display: flex; align-items: center; gap: 3px; font-size: 11px;
+  }
+  .token-time {
+    color: var(--text-faint);
+  }
+  .token-val {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* ---------- 用量條與動態光澤 (Shimmer) ---------- */
   .bar {
     position: relative; height: 24px; border-radius: 7px;
-    background: #080d1a; border: 1px solid #2b3b5e;
+    background: var(--surface-2); border: 1px solid var(--border);
     overflow: hidden;
   }
   .fill {
@@ -107,94 +245,225 @@
     border-radius: 6px 0 0 6px;
     transition: width .6s ease;
   }
-  .fill::after { /* 頂部高光,電玩血條質感 */
-    content: ""; position: absolute; left: 0; right: 0; top: 0; height: 45%;
-    background: linear-gradient(180deg, rgba(255,255,255,.42), rgba(255,255,255,0));
-    border-radius: 6px 6px 0 0;
+  /* 流暢微光掃過 (Shimmer Effect) */
+  .fill::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.16), transparent);
+    animation: barShimmer 3s infinite linear;
   }
-  .ticks { /* 血條分格線 */
-    position: absolute; inset: 0; pointer-events: none;
-    background: repeating-linear-gradient(90deg,
-      transparent 0, transparent calc(10% - 1px),
-      rgba(0,0,0,.45) calc(10% - 1px), rgba(0,0,0,.45) 10%);
+  @keyframes barShimmer {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
   }
+
+  .ticks { display: none; }
   .bar-text {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 700; letter-spacing: 1px;
-    color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.9);
+    font-size: 12px; font-weight: 700; letter-spacing: .3px;
+    color: var(--text);
     pointer-events: none;
+    z-index: 2;
   }
-  /* 無法讀取:灰色虛線框,避免誤導 */
-  .bar.na { border-style: dashed; border-color: #3d4a66; background: #0d1424; }
-  .na-text { color: #64748b !important; text-shadow: none !important; font-weight: 600; }
-  .bar.mini { height: 10px; flex: 1; min-width: 60px; border-radius: 4px; }
-  .ctx-line { display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 11px; color: var(--muted); }
+  /* 無法讀取:虛線框,避免誤導 */
+  .bar.na { border-style: dashed; border-color: var(--border); background: var(--surface-2); }
+  .na-text { color: var(--text-faint) !important; font-weight: 600; }
+  .ctx-line { display: flex; align-items: center; gap: 6px; margin-top: 5px; font-size: 11px; color: var(--text-muted); }
   .ctx-name { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; }
   .ctx-pct { flex: none; }
-  details.ctx-more { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  details.ctx-more { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
   details.ctx-more summary { cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  .fill.g { background: linear-gradient(180deg, #4ade80, #15803d); }
-  .fill.y { background: linear-gradient(180deg, #fde047, #a16207); }
-  .fill.r { background: linear-gradient(180deg, #f87171, #b91c1c); animation: lowhp 1s infinite; }
-  @keyframes lowhp { 50% { filter: brightness(1.45); } }
+  .fill.g { background: linear-gradient(90deg, #16a34a, #22c55e); }
+  .fill.y { background: linear-gradient(90deg, #d97706, #f59e0b); }
+  .fill.r { background: linear-gradient(90deg, #dc2626, #ef4444); animation: lowhp 1.6s ease-in-out infinite; }
+  @keyframes lowhp { 50% { opacity: .78; } }
 
-  /* ---------- 重生倒數條(淡藍框,天空藍隨時間填滿) ---------- */
-  .bar.cd { border-color: rgba(125,211,252,.4); background: rgba(12,26,46,.9); }
-  .bar.cd .fill { background: linear-gradient(180deg, #7dd3fc, #0369a1); }
-  .bar.cd.ready { border-color: var(--sky); box-shadow: 0 0 10px rgba(56,189,248,.55); }
-  .bar.cd.ready .fill { animation: readyPulse 1.2s infinite; }
-  @keyframes readyPulse { 50% { filter: brightness(1.5); } }
+  /* 重生滿血爆光閃爍動畫 (Refill Flash FX) */
+  .bar.refill-flash {
+    animation: refillFlash 1.2s ease-out forwards;
+  }
+  @keyframes refillFlash {
+    0%   { filter: brightness(2.2); box-shadow: 0 0 20px var(--accent); }
+    100% { filter: brightness(1.0); box-shadow: none; }
+  }
 
-  /* 重生倒數 < 30 分鐘:外框開始發亮蓄力,越接近重生脈動越快(電玩「準備爆發」感) */
+  /* ---------- 重置倒數條 ---------- */
+  .bar.cd.ready { border-color: var(--accent); }
+  .bar.cd.ready .fill { animation: readyPulse 1.6s ease-in-out infinite; }
+  @keyframes readyPulse { 50% { opacity: .8; } }
+
+  /* 倒數 < 30 分鐘:外框顏色開始脈動,越接近重置脈動越快 */
   .bar.cd.soon {
     animation: chargeGlow var(--charge-speed, 1.4s) ease-in-out infinite;
   }
   @keyframes chargeGlow {
-    0%, 100% {
-      border-color: rgba(125,211,252,.55);
-      box-shadow: 0 0 4px rgba(56,189,248,.35), inset 0 0 4px rgba(56,189,248,.15);
-      transform: scale(1);
-    }
-    50% {
-      border-color: #7dd3fc;
-      box-shadow: 0 0 14px rgba(56,189,248,.9), 0 0 26px rgba(56,189,248,.5), inset 0 0 8px rgba(56,189,248,.35);
-      transform: scale(1.015);
-    }
+    0%, 100% { border-color: rgba(var(--accent-rgb),.35); }
+    50%      { border-color: var(--accent); }
   }
 
-  .empty-note { color: var(--muted); text-align: center; padding: 40px 0; font-size: 14px; }
+  .empty-note { color: var(--text-muted); text-align: center; padding: 40px 0; font-size: 14px; }
+
+  /* Mini 模式 Hover 彈出卡片 (Hover Peek Card) */
+  #miniPeekCard {
+    position: fixed; z-index: 999;
+    background: var(--surface); border: 1px solid var(--accent);
+    border-radius: 10px; padding: 10px 14px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    font-size: 12px; pointer-events: none;
+    opacity: 0; transform: translateY(6px);
+    transition: opacity .2s ease, transform .2s ease;
+    max-width: 260px;
+  }
+  #miniPeekCard.show { opacity: 1; transform: translateY(0); }
+
+  /* ---------- 草皮圖(近 12 個月使用量熱力圖) ---------- */
+  .heatmap-card {
+    background: var(--surface);
+    border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 16px; margin-bottom: 12px;
+    box-shadow: var(--shadow-card);
+    overflow-x: auto;
+  }
+  .heatmap-inner { display: flex; flex-direction: column; gap: 4px; width: 100%; }
+  .heatmap-months {
+    display: grid; gap: 3px;
+    margin-left: 28px; font-size: 10px; color: var(--text-muted); height: 14px;
+  }
+  .heatmap-months span { white-space: nowrap; } /* 標籤(如「12月」)比欄寬還寬時,禁止換行改往右溢出,避免撐高整列 */
+  .heatmap-body { display: flex; gap: 6px; }
+  .heatmap-wdays {
+    display: grid; grid-template-rows: repeat(7, 12px); gap: 3px;
+    font-size: 10px; color: var(--text-muted); width: 22px; flex: none;
+  }
+  .heatmap-wdays span { display: flex; align-items: center; }
+  .heatmap-grid {
+    display: grid; grid-template-rows: repeat(7, 12px); grid-auto-flow: column; gap: 3px;
+    flex: 1; min-width: 0;
+  }
+  .heatmap-cell { height: 12px; border-radius: 3px; background: var(--surface-2); border: 1px solid var(--border); }
+  .heatmap-cell.empty { visibility: hidden; }
+  .heatmap-cell.lv1 { background: var(--heat-1); border-color: transparent; }
+  .heatmap-cell.lv2 { background: var(--heat-2); border-color: transparent; }
+  .heatmap-cell.lv3 { background: var(--heat-3); border-color: transparent; }
+  .heatmap-cell.lv4 { background: var(--heat-4); border-color: transparent; }
+  .heatmap-footer {
+    display: flex; justify-content: space-between; align-items: center; margin-top: 8px;
+    font-size: 11px; color: var(--text-muted); flex-wrap: wrap; gap: 8px;
+  }
+  .heatmap-legend { display: flex; align-items: center; gap: 4px; }
+  .heatmap-legend .heatmap-cell { width: 10px; height: 10px; }
+  .widget-mode .heatmap-card { display: none; }
+  .heatmap-caption-btn {
+    background: none; border: none; padding: 0; margin: 0; font: inherit; font-size: 11px;
+    color: var(--text-muted); cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+  }
+  .heatmap-caption-btn:hover { color: var(--text); }
+  .heatmap-chev { font-size: 9px; }
+  .heatmap-project-list {
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 2px; max-height: 280px; overflow-y: auto;
+  }
+  .heatmap-project-row {
+    display: grid; grid-template-columns: 20px minmax(0, 1fr) 84px 60px;
+    align-items: center; gap: 10px; font-size: 12px; padding: 5px 4px; border-radius: 6px;
+  }
+  .heatmap-project-row:hover { background: var(--surface-2); }
+  .heatmap-project-rank { color: var(--text-muted); font-size: 10px; text-align: right; }
+  .heatmap-project-name {
+    color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+  }
+  .heatmap-project-bar-track { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+  .heatmap-project-bar-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+  .heatmap-project-tokens { color: var(--accent); font-family: monospace; text-align: right; }
+  .heatmap-project-empty { color: var(--text-muted); text-align: center; padding: 10px 0; font-size: 12px; }
+
+  /* ---------- Token 流量圖(近 24 小時,每小時一格) ---------- */
+  .tokenflow-toolbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    margin-bottom: 10px; flex-wrap: wrap;
+  }
+  .tokenflow-title-group { display: flex; align-items: baseline; gap: 6px; }
+  .tokenflow-title { font-size: 12px; color: var(--text-muted); letter-spacing: .5px; }
+  .tokenflow-unit { font-size: 10px; color: var(--text-muted); opacity: .7; }
+  .tf-tabs {
+    display: flex; gap: 2px; background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 7px; padding: 2px;
+  }
+  .tf-tab {
+    background: none; border: none; padding: 3px 10px; font: inherit; font-size: 11px;
+    color: var(--text-muted); cursor: pointer; border-radius: 5px;
+  }
+  .tf-tab:hover { border-color: transparent; color: var(--text); }
+  .tf-tab.active { background: var(--surface); color: var(--text); font-weight: 600; }
+  .tokenflow-toggles { display: flex; gap: 14px; font-size: 12px; color: var(--text-muted); }
+  .tokenflow-toggles label { display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
+  .tokenflow-toggles input[type="checkbox"] { accent-color: var(--accent); cursor: pointer; margin: 0; }
+  .tf-dot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .tf-dot.claude { background: var(--accent); }
+  .tf-dot.codex { background: var(--accent-2); }
+  .tokenflow-body { display: flex; gap: 6px; }
+  .tokenflow-yaxis {
+    display: flex; flex-direction: column; justify-content: space-between;
+    width: 44px; flex: none; height: 90px;
+    font-size: 10px; color: var(--text-muted); text-align: right;
+  }
+  .tokenflow-plot { position: relative; flex: 1; min-width: 0; }
+  .tokenflow-gridlines {
+    position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between;
+    pointer-events: none;
+  }
+  .tokenflow-gridlines div { border-top: 1px dashed var(--border); height: 0; }
+  .tokenflow-chart {
+    position: relative; display: flex; align-items: flex-end; gap: 3px; height: 90px;
+  }
+  .tf-group {
+    flex: 1; display: flex; align-items: flex-end; justify-content: center;
+    gap: 2px; height: 100%; min-width: 0;
+  }
+  .tf-bar { flex: 1; max-width: 11px; border-radius: 2px 2px 0 0; }
+  .tf-bar.claude { background: var(--accent); }
+  .tf-bar.codex { background: var(--accent-2); }
+  .tokenflow-axis-row { display: flex; gap: 6px; margin-top: 5px; }
+  .tokenflow-yaxis-spacer { width: 44px; flex: none; }
+  .tokenflow-axis { display: flex; gap: 3px; font-size: 10px; color: var(--text-muted); flex: 1; min-width: 0; }
+  .tf-axis-label { flex: 1; text-align: center; min-width: 0; white-space: nowrap; overflow: hidden; }
+  .widget-mode .tokenflow-card { display: none; }
 
   /* ---------- RWD ---------- */
-  @media (max-width: 1100px) {
-    .metrics { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-  }
   @media (max-width: 720px) {
     .row { grid-template-columns: 1fr; }
     .prov { flex-direction: row; align-items: center; flex-wrap: wrap; }
     .edit-btn { margin-left: auto; }
+    .metrics {
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "sess"
+        "lt"
+        "ctx"
+        "tokens";
+    }
   }
 
   /* ---------- 編輯視窗 ---------- */
   dialog {
-    background: var(--panel); color: var(--text);
-    border: 1px solid var(--panel-edge); border-radius: 14px;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: 14px;
     padding: 22px; width: min(480px, 92vw);
   }
-  dialog::backdrop { background: rgba(3,7,18,.7); }
-  dialog h2 { font-size: 16px; margin-bottom: 4px; letter-spacing: 2px; }
-  dialog .hint { font-size: 11px; color: var(--muted); margin-bottom: 14px; line-height: 1.5; }
+  dialog::backdrop { background: rgba(3,7,18,.6); }
+  dialog h2 { font-size: 16px; margin-bottom: 4px; letter-spacing: 1px; }
+  dialog .hint { font-size: 11px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5; }
   fieldset {
-    border: 1px solid var(--panel-edge); border-radius: 10px;
+    border: 1px solid var(--border); border-radius: 10px;
     padding: 10px 12px 12px; margin-bottom: 12px;
   }
-  legend { font-size: 12px; color: var(--sky); padding: 0 6px; letter-spacing: 1px; }
+  legend { font-size: 12px; color: var(--accent); padding: 0 6px; letter-spacing: .5px; }
   .frow { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-  .frow label { font-size: 12px; color: var(--muted); min-width: 86px; }
+  .frow label { font-size: 12px; color: var(--text-muted); min-width: 86px; }
   input, select {
     font: inherit; font-size: 13px; color: var(--text);
-    background: #0b1526; border: 1px solid var(--panel-edge); border-radius: 6px;
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px;
     padding: 5px 8px; flex: 1; min-width: 0;
   }
   input[type="number"] { max-width: 90px; flex: none; }
@@ -204,26 +473,26 @@
   #toast {
     position: fixed; right: 20px; bottom: 20px; z-index: 50;
     max-width: min(420px, 90vw);
-    background: #16223c; border: 1px solid var(--sky); border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--accent); border-radius: 10px;
     padding: 12px 16px; font-size: 13px; line-height: 1.5;
-    box-shadow: 0 6px 24px rgba(0,0,0,.5);
+    box-shadow: var(--shadow-card);
     opacity: 0; transform: translateY(8px); pointer-events: none;
     transition: opacity .3s, transform .3s;
   }
   #toast.show { opacity: 1; transform: none; }
-  #toast.err { border-color: #ef4444; }
+  #toast.err { border-color: var(--danger); }
 
   /* ---------- 浮動小工具模式(?widget=1,見 floating-widget.ps1) ---------- */
-  /* 只留供應商卡片本身,拿掉標題/狀態/語系/新增按鈕;背景與卡片底色都改半透明,讓桌面透出來 */
+  /* 只留供應商卡片本身,拿掉標題/狀態/語系/主題/新增按鈕;背景與卡片底色都改半透明,讓桌面透出來 */
   .widget-mode body { background: transparent; padding: 8px; }
   .widget-mode header { display: none; }
-  .widget-mode .row { background: linear-gradient(180deg, rgba(22,34,60,.55), rgba(18,27,48,.55)); }
-  /* 血條本身也改半透明(軌道 + 三種血量填色 + 倒數條的填色) */
-  .widget-mode .bar { background: rgba(8,13,26,.18); }
-  .widget-mode .fill.g { background: linear-gradient(180deg, rgba(74,222,128,.22), rgba(21,128,61,.22)); }
-  .widget-mode .fill.y { background: linear-gradient(180deg, rgba(253,224,71,.22), rgba(161,98,7,.22)); }
-  .widget-mode .fill.r { background: linear-gradient(180deg, rgba(248,113,113,.22), rgba(185,28,28,.22)); }
-  .widget-mode .bar.cd .fill { background: linear-gradient(180deg, rgba(125,211,252,.22), rgba(3,105,161,.22)); }
+  .widget-mode .row { background: rgba(var(--surface-rgb),.55); border-color: rgba(var(--border-rgb),.5); box-shadow: none; }
+  /* 用量條本身也改半透明(軌道 + 三種用量色 + 倒數條的填色) */
+  .widget-mode .bar { background: rgba(var(--surface-rgb),.3); }
+  .widget-mode .fill.g { background: rgba(var(--ok-rgb),.55); }
+  .widget-mode .fill.y { background: rgba(var(--warn-rgb),.55); }
+  .widget-mode .fill.r { background: rgba(var(--danger-rgb),.55); }
+  .widget-mode .bar.cd .fill { background: rgba(var(--accent-rgb),.55); }
   /* 捲軸也改透明:隱藏上下箭頭圖示,軌道透明,滑塊改半透明白 */
   .widget-mode ::-webkit-scrollbar { width: 8px; }
   .widget-mode ::-webkit-scrollbar-track { background: transparent; }
@@ -248,14 +517,14 @@
   html.mini-mode #dragHint { display: none; } /* 迷你模式只有 20px 高,沒空間;整行都可拖,游標提示就夠 */
 
   /* ---------- 迷你橫式模式(?widget=1&mini=1&provider=xxx,見 floating-widget.ps1 -Mini) ---------- */
-  /* 一次只顯示一個供應商:名稱 + 血條 + 百分比 + 重置倒數,擠進約 20px 高一行;方向鍵上/下切換供應商 */
+  /* 一次只顯示一個供應商:名稱 + 用量條 + 百分比 + 重置倒數,擠進約 20px 高一行;方向鍵上/下切換供應商 */
   #miniLine { display: none; }
   .mini-mode body { padding: 0; }
   .mini-mode #rows { display: none; }
   .mini-mode #miniLine {
     display: flex; align-items: center; gap: 6px;
     height: 20px; padding: 0 6px; box-sizing: border-box;
-    background: linear-gradient(180deg, rgba(22,34,60,.6), rgba(18,27,48,.6));
+    background: rgba(var(--surface-rgb),.6);
     border-radius: 6px; font-size: 11px; white-space: nowrap; overflow: hidden;
   }
   .mini-mode .mini-name {
@@ -305,12 +574,24 @@ if (new URLSearchParams(location.search).get('widget') === '1') {
   <h1><span data-i18n="pageTitle">AI 使用量儀表板</span> <span class="pix">▮▮▮▯▯</span></h1>
   <span id="status"><span class="dot" id="statusDot"></span><span id="statusText" data-i18n="statusConnecting">連線中…</span></span>
   <span class="spacer"></span>
+  <button id="viewToggle" type="button"></button>
+  <button id="notifyToggle" type="button"></button>
+  <button id="themeToggle" type="button"></button>
   <button id="langToggle" type="button"></button>
   <button id="addBtn" class="primary" data-i18n="addProviderBtn">＋ 新增提供商</button>
 </header>
 
-<main id="rows"></main>
+<section id="trendsSection">
+  <h2 class="section-heading" data-i18n="sectionTrends">趨勢</h2>
+  <div id="heatmapCard" class="heatmap-card"></div>
+  <div id="tokenFlowCard" class="heatmap-card tokenflow-card"></div>
+</section>
+<section id="statusSection">
+  <h2 class="section-heading" data-i18n="sectionStatus">目前狀態</h2>
+  <main id="rows"></main>
+</section>
 <div id="miniLine"></div>
+<div id="miniPeekCard"></div>
 <div id="dragHint">⠿⠿⠿</div>
 
 <div id="toast"></div>
@@ -335,15 +616,6 @@ if (new URLSearchParams(location.search).get('widget') === '1') {
       <div class="frow"><label data-i18n="labelUsedPct">已用 %</label><input id="fSessPct" type="number" min="0" max="100" step="0.1"></div>
       <div class="frow"><label data-i18n="labelResetTime">重置時間</label><input id="fSessReset" type="datetime-local"></div>
       <div class="frow"><label data-i18n="labelWindowMin">週期(分鐘)</label><input id="fSessWin" type="number" min="1" value="300"></div>
-    </fieldset>
-    <fieldset id="fKeyFs" style="display:none">
-      <legend data-i18n="legendMinimaxKey">MiniMax API Key(AES 加密儲存於本機)</legend>
-      <div class="frow"><label data-i18n="labelApiKey">API Key</label>
-        <input id="fApiKey" type="password" autocomplete="off"></div>
-      <div class="frow">
-        <button type="button" id="clearKeyBtn" data-i18n="clearKeyBtn">清除已儲存的 Key</button>
-      </div>
-      <p class="hint" style="margin:8px 0 0" data-i18n="minimaxKeyHint">Key 只送往本機伺服器(127.0.0.1),以硬體綁定金鑰 AES-256-GCM 加密後存入 config.json,不會以明文落地。留空 = 不變更。</p>
     </fieldset>
     <fieldset>
       <legend data-i18n="legendLongterm">長期使用率(每週/每月)</legend>
@@ -384,10 +656,6 @@ const I18N = {
     labelUsedPct: '已用 %',
     labelResetTime: '重置時間',
     labelWindowMin: '週期(分鐘)',
-    legendMinimaxKey: 'MiniMax API Key(AES 加密儲存於本機)',
-    labelApiKey: 'API Key',
-    clearKeyBtn: '清除已儲存的 Key',
-    minimaxKeyHint: 'Key 只送往本機伺服器(127.0.0.1),以硬體綁定金鑰 AES-256-GCM 加密後存入 config.json,不會以明文落地。留空 = 不變更。',
     legendLongterm: '長期使用率(每週/每月)',
     labelDisplayAs: '顯示為',
     ltWeekly: '每週',
@@ -402,44 +670,67 @@ const I18N = {
     modeWait: '等待伺服器…',
     modeManual: '手動模式',
     dragTitle: '拖拉排序',
+    collapseTitle: '收合',
+    expandTitle: '展開',
     editBtnLabel: '✎ 編輯',
     moveUpTitle: '上移',
     moveDownTitle: '下移',
     labelCurrentUsage: '目前使用率',
-    labelNextRespawn: '下次重生',
     labelContextUsage: 'CONTEXT 使用率',
+    labelRealtimeUsage: '即時用量 (TOKEN)',
     usageOfLabel: '{label}使用率',
-    respawnOfLabel: '{label}重生',
     naText: '無法讀取',
+    naLogsText: '無本地日誌',
     naSub: '無活躍 session 或不支援',
     activeSessionsCount: '{label} · 共 {n} 個活躍 session',
-    activeSessionUsed: '{label} · 已用 {pct}%',
-    readyText: '✦ 已重生 ✦',
+    readyText: '已重置',
     remainPct: '剩 {pct}%',
     usedPct: '已用 {pct}%',
     editHintPlaceholder: '點「✎ 編輯」輸入資料',
     resetAtTime: '重置於 {time}',
-    noResetTime: '未設定重置時間',
     serverConnected: '伺服器已連線 · 更新於 {time}',
     offlineMode: '離線模式(未偵測到本機伺服器,顯示手動資料)',
     saveFailed: '儲存失敗:{err}',
-    keyCleared: '已清除儲存的 MiniMax API Key',
-    keySavedSuccess: '✓ Key 已加密儲存,MiniMax 自動同步成功!',
-    keySavedTestFailed: 'Key 已加密儲存,但端點測試失敗:{err}',
-    unknownError: '未知錯誤',
-    offlineCantSave: '無法連線本機伺服器 — 離線模式下無法儲存 Key,請先執行 start.bat',
     dlgHintAuto: '此提供商正在自動同步:Session 與長期使用率由伺服器覆蓋,手動值僅作為備援;Context 永遠採用手動值。',
     dlgHintManual: '所有欄位皆為手動值,存於瀏覽器 localStorage。',
-    keyPlaceholderSet: '已設定(留空 = 不變更)',
-    keyPlaceholderEmpty: '貼上你的 MiniMax API Key',
     unnamedDefault: '未命名',
-    confirmClearKey: '確定清除已儲存的 MiniMax API Key?',
     confirmDelete: '確定刪除「{name}」?',
     allProvidersAdded: '目前支援的提供商({list})都已在儀表板上',
     manualSuffix: '(手動)',
     providerAdded: '已加入 {name}',
+    viewModeFull: '詳細',
+    viewModeCompact: '精簡',
+    viewModeTitle: '切換精簡/詳細視圖',
+    notifyOn: '🔔 通知: 開',
+    notifyOff: '🔕 通知: 關',
+    notifyTitle: '開啟/關閉重置桌面通知',
+    copySummary: '複製狀態摘要',
+    refreshProvider: '強制更新',
+    notifyResetTitle: '⚡ {name} 額度已重置！',
+    notifyResetBody: 'Session / 長期額度已恢復滿血，可繼續使用。',
+    copiedToast: '已複製 {name} 使用量摘要',
     langToggleLabel: '中文',
     langToggleTitle: 'Switch to English',
+    themeToggleToDark: '深色',
+    themeToggleToLight: '淺色',
+    themeToggleTitle: '切換淺色/深色主題',
+    sectionStatus: '目前狀態',
+    sectionTrends: '趨勢',
+    heatmapCaption: '曾用 AI 開發過 {n} 個專案',
+    heatmapLess: '少',
+    heatmapMore: '多',
+    heatmapTooltip: '{date} · {tokens} tokens',
+    heatmapTooltipNone: '{date} · 無用量',
+    heatmapNoProjects: '尚無可顯示的專案',
+    tokenFlowTitleHour: '近 24 小時 TOKEN 流量',
+    tokenFlowTitleDay: '近 14 天 TOKEN 流量',
+    tokenFlowTitleWeek: '近 12 週 TOKEN 流量',
+    tokenFlowTabHour: '小時',
+    tokenFlowTabDay: '日',
+    tokenFlowTabWeek: '週',
+    tokenFlowTooltip: '{time} · {tokens} tokens',
+    tokenFlowEmpty: '目前沒有偵測到本地日誌用量',
+    tokenFlowUnit: 'tokens',
   },
   en: {
     pageTitle: 'AI Usage Dashboard',
@@ -455,10 +746,6 @@ const I18N = {
     labelUsedPct: 'Used %',
     labelResetTime: 'Reset Time',
     labelWindowMin: 'Window (min)',
-    legendMinimaxKey: 'MiniMax API Key (AES encrypted, stored locally)',
-    labelApiKey: 'API Key',
-    clearKeyBtn: 'Clear saved Key',
-    minimaxKeyHint: 'The key is only sent to the local server (127.0.0.1), encrypted with a hardware-bound AES-256-GCM key and stored in config.json — never written in plaintext. Leave blank to keep unchanged.',
     legendLongterm: 'Long-term Usage (Weekly/Monthly)',
     labelDisplayAs: 'Display as',
     ltWeekly: 'Weekly',
@@ -473,49 +760,76 @@ const I18N = {
     modeWait: 'Waiting for server…',
     modeManual: 'Manual mode',
     dragTitle: 'Drag to reorder',
+    collapseTitle: 'Collapse',
+    expandTitle: 'Expand',
     editBtnLabel: '✎ Edit',
     moveUpTitle: 'Move up',
     moveDownTitle: 'Move down',
     labelCurrentUsage: 'Current Usage',
-    labelNextRespawn: 'Next Respawn',
     labelContextUsage: 'CONTEXT Usage',
+    labelRealtimeUsage: 'Real-time (TOKEN)',
     usageOfLabel: '{label} Usage',
-    respawnOfLabel: '{label} Respawn',
     naText: 'N/A',
+    naLogsText: 'No local logs',
     naSub: 'No active session or unsupported',
     activeSessionsCount: '{label} · {n} active sessions',
-    activeSessionUsed: '{label} · {pct}% used',
-    readyText: '✦ Ready ✦',
+    readyText: 'Ready',
     remainPct: '{pct}% left',
     usedPct: '{pct}% used',
     editHintPlaceholder: 'Click "✎ Edit" to enter data',
     resetAtTime: 'Resets at {time}',
-    noResetTime: 'No reset time set',
     serverConnected: 'Server connected · updated {time}',
     offlineMode: 'Offline mode (local server not detected, showing manual data)',
     saveFailed: 'Save failed: {err}',
-    keyCleared: 'Cleared saved MiniMax API Key',
-    keySavedSuccess: '✓ Key encrypted and saved — MiniMax auto sync succeeded!',
-    keySavedTestFailed: 'Key encrypted and saved, but endpoint test failed: {err}',
-    unknownError: 'Unknown error',
-    offlineCantSave: 'Cannot reach the local server — cannot save the key in offline mode. Please run start.bat first.',
     dlgHintAuto: 'This provider is auto-syncing: session and long-term usage are overridden by the server (manual values act as a fallback); Context always uses the manual value.',
     dlgHintManual: 'All fields are manual values stored in the browser\'s localStorage.',
-    keyPlaceholderSet: 'Set (leave blank = no change)',
-    keyPlaceholderEmpty: 'Paste your MiniMax API Key',
     unnamedDefault: 'Unnamed',
-    confirmClearKey: 'Are you sure you want to clear the saved MiniMax API Key?',
     confirmDelete: 'Delete "{name}"?',
     allProvidersAdded: 'All supported providers ({list}) are already on the dashboard',
     manualSuffix: ' (Manual)',
     providerAdded: 'Added {name}',
+    viewModeFull: 'Detailed',
+    viewModeCompact: 'Compact',
+    viewModeTitle: 'Toggle compact/detailed view',
+    notifyOn: '🔔 Notify: On',
+    notifyOff: '🔕 Notify: Off',
+    notifyTitle: 'Enable/disable desktop reset notifications',
+    copySummary: 'Copy Summary',
+    refreshProvider: 'Force Refresh',
+    notifyResetTitle: '⚡ {name} quota reset!',
+    notifyResetBody: 'Session / long-term quota is fully restored.',
+    copiedToast: 'Copied usage summary for {name}',
     langToggleLabel: 'EN',
     langToggleTitle: '切換為繁體中文',
+    themeToggleToDark: 'Dark',
+    themeToggleToLight: 'Light',
+    themeToggleTitle: 'Toggle light/dark theme',
+    sectionStatus: 'Status',
+    sectionTrends: 'Trends',
+    heatmapCaption: '{n} projects built with AI',
+    heatmapLess: 'Less',
+    heatmapMore: 'More',
+    heatmapTooltip: '{date} · {tokens} tokens',
+    heatmapTooltipNone: '{date} · No usage',
+    heatmapNoProjects: 'No projects to show yet',
+    tokenFlowTitleHour: 'Token Flow (Last 24h)',
+    tokenFlowTitleDay: 'Token Flow (Last 14d)',
+    tokenFlowTitleWeek: 'Token Flow (Last 12w)',
+    tokenFlowTabHour: 'Hour',
+    tokenFlowTabDay: 'Day',
+    tokenFlowTabWeek: 'Week',
+    tokenFlowTooltip: '{time} · {tokens} tokens',
+    tokenFlowEmpty: 'No local log usage detected',
+    tokenFlowUnit: 'tokens',
   },
 };
 const WEEKDAYS_I18N = {
   'zh-Hant': ['日', '一', '二', '三', '四', '五', '六'],
   en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+};
+const MONTHS_I18N = {
+  'zh-Hant': ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
 };
 function detectLang() {
   const nav = (navigator.language || navigator.userLanguage || 'en').toLowerCase();
@@ -539,6 +853,9 @@ function applyStaticI18n() {
   const toggle = $('#langToggle');
   toggle.textContent = t('langToggleLabel');
   toggle.title = t('langToggleTitle');
+  applyTheme();
+  applyViewMode();
+  applyNotifyMode();
 }
 function setLang(l) {
   lang = l;
@@ -552,13 +869,78 @@ $('#langToggle').addEventListener('click', () => {
   setLang(lang === 'zh-Hant' ? 'en' : 'zh-Hant');
 });
 
+// ---------------- 主題(淺色/深色) ----------------
+const THEME_KEY = 'aiDash.theme.v1';
+function detectTheme() {
+  return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+}
+function loadTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  return (saved === 'dark' || saved === 'light') ? saved : detectTheme();
+}
+let theme = loadTheme();
+function applyTheme() {
+  document.documentElement.dataset.theme = theme;
+  const toggle = $('#themeToggle');
+  toggle.textContent = theme === 'dark' ? t('themeToggleToLight') : t('themeToggleToDark');
+  toggle.title = t('themeToggleTitle');
+}
+function setTheme(v) {
+  theme = v;
+  localStorage.setItem(THEME_KEY, v);
+  applyTheme();
+}
+$('#themeToggle').addEventListener('click', () => {
+  setTheme(theme === 'dark' ? 'light' : 'dark');
+});
+
+// ---------------- 視圖模式(精簡/詳細) ----------------
+const COMPACT_KEY = 'aiDash.compact.v1';
+let isCompact = localStorage.getItem(COMPACT_KEY) === '1';
+function applyViewMode() {
+  document.body.classList.toggle('compact-mode', isCompact);
+  const toggle = $('#viewToggle');
+  if (toggle) {
+    toggle.textContent = isCompact ? t('viewModeFull') : t('viewModeCompact');
+    toggle.title = t('viewModeTitle');
+  }
+}
+function setViewMode(compact) {
+  isCompact = compact;
+  localStorage.setItem(COMPACT_KEY, compact ? '1' : '0');
+  applyViewMode();
+}
+$('#viewToggle').addEventListener('click', () => setViewMode(!isCompact));
+
+// ---------------- 桌面通知 ----------------
+const NOTIFY_KEY = 'aiDash.notify.v1';
+let notifyEnabled = localStorage.getItem(NOTIFY_KEY) === '1';
+function applyNotifyMode() {
+  const toggle = $('#notifyToggle');
+  if (toggle) {
+    toggle.textContent = notifyEnabled ? t('notifyOn') : t('notifyOff');
+    toggle.title = t('notifyTitle');
+  }
+}
+async function setNotifyMode(enable) {
+  if (enable && 'Notification' in window && Notification.permission !== 'granted') {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      toast(t('saveFailed', { err: 'Permission denied' }), true);
+      enable = false;
+    }
+  }
+  notifyEnabled = enable;
+  localStorage.setItem(NOTIFY_KEY, enable ? '1' : '0');
+  applyNotifyMode();
+}
+$('#notifyToggle').addEventListener('click', () => setNotifyMode(!notifyEnabled));
+
 // ---------------- 狀態 ----------------
-// [id, 名稱, 是否支援自動同步] — Kiro 由伺服器偵測 CLI 憑證,未登入時回報原因
+// [id, 名稱, 是否支援自動同步]
 const BUILTINS = [
   ['claude', 'Claude', true],
   ['codex', 'Codex', true],
-  ['minimax', 'MiniMax', true],
-  ['kiro', 'Kiro', true],
   ['antigravity', 'Antigravity', true],
 ];
 let autoData = {};          // /api/usage 回傳的自動資料(不落地)
@@ -570,15 +952,13 @@ function mkProvider(id, name, autoKey) {
   const now = Date.now();
   const p = {
     id, name, autoKey: autoKey || null,
+    collapsed: id !== 'claude', // 預設只展開 Claude,其餘收合(2026-07-22 使用者要求)
     manual: {
       session:  { usedPct: 35, resetsAt: now + 2 * 3600e3, windowMin: 300 },
       context:  { usedPct: 20 },
       longterm: { usedPct: 45, resetsAt: now + 3 * 86400e3, windowMin: 10080, label: '每週' }, // label 為內部標準值(中文),顯示時經 t() 翻譯
     },
   };
-  if (id === 'kiro') { // Kiro 是月配額制
-    p.manual.longterm = { usedPct: 0, resetsAt: now + 15 * 86400e3, windowMin: 43200, label: '每月' };
-  }
   return p;
 }
 function mkBuiltin([id, name, hasAuto]) { return mkProvider(id, name, hasAuto ? id : null); }
@@ -600,6 +980,13 @@ function seedBuiltins(s) {
     const existing = s.providers.find(p => p.id === b[0]);
     if (existing && b[2] && !existing.autoKey) {
       existing.autoKey = b[0];
+      added = true;
+    }
+  }
+  // 遷移:既有(本功能推出前建立的)provider 補上 collapsed 欄位預設值,只補一次,不覆蓋使用者之後的手動展開/收合
+  for (const p of s.providers) {
+    if (p.collapsed === undefined) {
+      p.collapsed = p.id !== 'claude';
       added = true;
     }
   }
@@ -647,8 +1034,12 @@ function effective(p) {
   if (rawAuto && Array.isArray(rawAuto.context) && rawAuto.context.length) {
     ctx = { sessions: rawAuto.context };
   }
+  let realtimeUsage = null;
+  if (rawAuto && rawAuto.realtimeUsage) {
+    realtimeUsage = rawAuto.realtimeUsage;
+  }
   return {
-    sess, lt, ctx,
+    sess, lt, ctx, realtimeUsage,
     autoState: p.autoKey ? (a ? (a.ok ? 'ok' : 'err') : 'wait') : 'none',
     autoErr: (a && !a.ok) ? a.error : null,
   };
@@ -677,7 +1068,15 @@ function hpClass(usedPct) {
 function srcLabel(src) {
   return src === 'auto' ? t('srcAuto') : src === 'manual' ? t('srcManual') : (src || '');
 }
-function hpCell(label, usedPct, src) {
+// 重置時間標註:掛 data-reset-mark 讓 tick() 判斷是否已進入「快重置」門檻,快到了就變色提醒(見 RESET_SOON_MS)
+function resetMarkHtml(resetsAt) {
+  return `<span class="reset-mark" data-reset-mark data-resets="${resetsAt}">${t('resetAtTime', { time: fmtAbs(resetsAt) })}</span>`;
+}
+// 距重置的即時倒數文字(HH:MM:SS,每秒由 tick() 更新),跟使用量條合併顯示,不再另外佔一條血條
+function cdRemainHtml(resetsAt) {
+  return `<span class="cd-remain" data-cd-text data-resets="${resetsAt}">—</span>`;
+}
+function hpCell(label, usedPct, src, resetsAt) {
   const has = usedPct != null && isFinite(usedPct);
   // 自動同步但上游明確表示無此資料(effective() 已將 usedPct 設為 null、src 設為 'auto')時,
   // 顯示跟 Context 一致的灰色虛框「無法讀取」,不邀請使用者編輯(手動值在這個狀態下永遠會被蓋過)
@@ -691,6 +1090,8 @@ function hpCell(label, usedPct, src) {
   }
   const used = has ? Math.min(100, Math.max(0, usedPct)) : 0;
   const remain = 100 - used;
+  const hasReset = resetsAt != null && isFinite(resetsAt);
+  const resetSub = hasReset ? ' · ' + cdRemainHtml(resetsAt) + ' · ' + resetMarkHtml(resetsAt) : '';
   return `
     <div class="metric">
       <div class="metric-label"><span>${label}</span><span class="src">${srcLabel(src)}</span></div>
@@ -699,7 +1100,7 @@ function hpCell(label, usedPct, src) {
         <div class="ticks"></div>
         <span class="bar-text">${has ? t('remainPct', { pct: remain.toFixed(remain < 10 ? 1 : 0) }) : '—'}</span>
       </div>
-      <div class="sub">${has ? t('usedPct', { pct: used.toFixed(1) }) : t('editHintPlaceholder')}</div>
+      <div class="sub">${has ? t('usedPct', { pct: used.toFixed(1) }) + resetSub : t('editHintPlaceholder')}</div>
     </div>`;
 }
 function ctxCell(ctx) {
@@ -711,53 +1112,342 @@ function ctxCell(ctx) {
       <div class="sub">${t('naSub')}</div>
     </div>`;
   }
+  // 2026-07-24 改回傳原始 token 數,不再算 %:實際 context window 上限跟 auto-compact 門檻是
+  // Claude Code/Codex 內部邏輯與帳號方案決定,本機讀不到,寫死一個分母算出來的 % 會失真(見對話討論)。
   const list = ctx.sessions;
   const s0 = list[0];
-  const used = Math.min(100, Math.max(0, s0.usedPct));
-  const remain = 100 - used;
-  const line = s => {
-    const r = 100 - Math.min(100, Math.max(0, s.usedPct));
-    return `<div class="ctx-line"><span class="ctx-name" title="${escapeHtml(s.label)}">${escapeHtml(s.label)}</span>
-      <div class="bar mini"><div class="fill ${hpClass(s.usedPct)}" style="width:${r}%"></div></div>
-      <span class="ctx-pct">${t('remainPct', { pct: r.toFixed(0) })}</span></div>`;
-  };
+  const line = s => `<div class="ctx-line"><span class="ctx-name" title="${escapeHtml(s.label)}">${escapeHtml(s.label)}</span>
+      <span class="ctx-pct">${fmtAxisTokens(s.tokens)}</span></div>`;
   const sub = list.length > 1
     ? `<details class="ctx-more"><summary>${t('activeSessionsCount', { label: escapeHtml(s0.label), n: list.length })}</summary>${list.map(line).join('')}</details>`
-    : `<div class="sub">${t('activeSessionUsed', { label: escapeHtml(s0.label), pct: used.toFixed(1) })}</div>`;
+    : `<div class="sub">${escapeHtml(s0.label)}</div>`;
   return `
     <div class="metric">
       <div class="metric-label"><span>${t('labelContextUsage')}</span><span class="src">${t('srcAuto')}</span></div>
-      <div class="bar">
-        <div class="fill ${hpClass(used)}" style="width:${remain}%"></div>
-        <div class="ticks"></div>
-        <span class="bar-text">${t('remainPct', { pct: remain.toFixed(remain < 10 ? 1 : 0) })}</span>
+      <div class="token-display">
+        <div class="token-item"><span class="token-val">${fmtAxisTokens(s0.tokens)}</span><span class="token-time">tokens</span></div>
       </div>
       ${sub}
     </div>`;
 }
 
-function cdCell(label, resetsAt, windowMin, src, pid, kind) {
-  const has = resetsAt != null && isFinite(resetsAt);
-  // 同 hpCell:自動同步但上游明確表示無此資料時,顯示灰色虛框,不掛 data-cd(不需要倒數)
-  if (!has && src === 'auto') {
+function tokenCell(usage) {
+  if (!usage) {
     return `
     <div class="metric">
-      <div class="metric-label"><span>${label}</span><span class="src">${srcLabel(src)}</span></div>
-      <div class="bar na"><span class="bar-text na-text">${t('naText')}</span></div>
+      <div class="metric-label"><span>${t('labelRealtimeUsage')}</span><span class="src">—</span></div>
+      <div class="bar na"><span class="bar-text na-text">${t('naLogsText')}</span></div>
       <div class="sub">${t('naSub')}</div>
     </div>`;
   }
+  
+  const h1Val = fmtAxisTokens(usage.last1h.total);
+  const h24Val = fmtAxisTokens(usage.last24h.total);
+  const in24 = fmtAxisTokens(usage.last24h.input);
+  const out24 = fmtAxisTokens(usage.last24h.output);
+  
   return `
     <div class="metric">
-      <div class="metric-label"><span>${label}</span><span class="src">${srcLabel(src)}</span></div>
-      <div class="bar cd" data-cd data-pid="${pid}" data-kind="${kind}"
-           data-resets="${has ? resetsAt : ''}" data-window="${windowMin || ''}">
-        <div class="fill" style="width:0%"></div>
-        <div class="ticks"></div>
-        <span class="bar-text">—</span>
+      <div class="metric-label"><span>${t('labelRealtimeUsage')}</span><span class="src">${t('srcAuto')}</span></div>
+      <div class="token-display">
+        <div class="token-item">
+          <span class="token-time">1h:</span>
+          <span class="token-val">${h1Val}</span>
+        </div>
+        <div class="token-item">
+          <span class="token-time">24h:</span>
+          <span class="token-val">${h24Val}</span>
+        </div>
       </div>
-      <div class="sub">${has ? t('resetAtTime', { time: fmtAbs(resetsAt) }) : t('noResetTime')}</div>
+      <div class="sub" title="In: ${usage.last24h.input} / Out: ${usage.last24h.output}">I/O: ${in24}/${out24}</div>
     </div>`;
+}
+
+// ---------------- 草皮圖(近 12 個月使用量熱力圖,合併所有支援本地日誌的提供商) ----------------
+// 伺服器回傳的 { days: {'YYYY-MM-DD': tokens}(Claude+Codex 加總), projectCount, projects: [{label, tokens}], daysByProvider: { claude:{...}, codex:{...} } }
+let heatmapData = { days: {}, projectCount: 0, projects: [], daysByProvider: { claude: {}, codex: {} } };
+let heatmapProjectsOpen = false; // 專案清單展開/收合狀態,跨每次 renderAll() 重繪要保留
+function fmtTokenShort(n) {
+  return n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+}
+// 座標軸專用格式:數字大時自動換算成 M,避免出現「42590.1k」這種一長串
+function fmtAxisTokens(n) {
+  if (n >= 1e6) return (Number.isInteger(n / 1e6) ? n / 1e6 : (n / 1e6).toFixed(1)) + 'M';
+  if (n >= 1e3) return Math.round(n / 1e3) + 'k';
+  return String(Math.round(n));
+}
+// 把座標軸最大值無條件進位到「1/2/5 × 10^n」的整數關卡,讓刻度是好讀的整數而不是資料的精確值
+function niceCeil(v) {
+  if (v <= 0) return 1;
+  const exp = Math.floor(Math.log10(v));
+  const base = Math.pow(10, exp);
+  const frac = v / base;
+  const niceFrac = frac <= 1 ? 1 : frac <= 2 ? 2 : frac <= 5 ? 5 : 10;
+  return niceFrac * base;
+}
+function renderHeatmap(payload) {
+  const box = $('#heatmapCard');
+  if (!box) return;
+  const days = payload.days || {};
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const end = new Date(today);
+  const start = new Date(end);
+  start.setDate(start.getDate() - 371);
+  start.setDate(start.getDate() - start.getDay()); // 對齊到最近的週日,湊滿整週
+
+  const weeks = [];
+  let cur = new Date(start);
+  while (cur <= end) {
+    const week = [];
+    for (let i = 0; i < 7; i++) {
+      if (cur < start || cur > end) {
+        week.push(null);
+      } else {
+        const key = cur.getFullYear() + '-' + pad(cur.getMonth() + 1) + '-' + pad(cur.getDate());
+        week.push({ date: new Date(cur), key, count: days[key] || 0 });
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    weeks.push(week);
+  }
+
+  // 分級門檻依非零用量的四分位數計算(近似 GitHub 草皮圖的做法),避免單一離群高值把其他格子全部拉成最低階
+  const vals = [];
+  weeks.forEach(w => w.forEach(d => { if (d && d.count > 0) vals.push(d.count); }));
+  vals.sort((a, b) => a - b);
+  const qAt = p => vals.length ? vals[Math.min(vals.length - 1, Math.floor(p * vals.length))] : 0;
+  const thresholds = [qAt(0.25), qAt(0.5), qAt(0.75)];
+  const levelOf = c => {
+    if (!c) return 0;
+    if (c <= thresholds[0]) return 1;
+    if (c <= thresholds[1]) return 2;
+    if (c <= thresholds[2]) return 3;
+    return 4;
+  };
+
+  const monthLabels = [];
+  let lastMonth = null;
+  weeks.forEach((w, i) => {
+    const firstDay = w.find(d => d);
+    if (!firstDay) return;
+    const m = firstDay.date.getMonth();
+    if (m !== lastMonth) { monthLabels.push({ col: i, m }); lastMonth = m; }
+  });
+  const monthsHtml = monthLabels.map(l =>
+    `<span style="grid-column:${l.col + 1}">${MONTHS_I18N[lang][l.m]}</span>`).join('');
+
+  const wdayIdx = [1, 3, 5]; // 只標週一/週三/週五,跟其餘留白避免擁擠
+  const wdaysHtml = Array.from({ length: 7 }, (_, i) =>
+    `<span>${wdayIdx.includes(i) ? (lang === 'zh-Hant' ? '週' + WEEKDAYS_I18N[lang][i] : WEEKDAYS_I18N[lang][i]) : ''}</span>`).join('');
+
+  const cellsHtml = weeks.map(w => w.map(d => {
+    if (!d) return `<div class="heatmap-cell empty"></div>`;
+    const lv = levelOf(d.count);
+    const tip = d.count > 0
+      ? t('heatmapTooltip', { date: d.key, tokens: fmtAxisTokens(d.count) })
+      : t('heatmapTooltipNone', { date: d.key });
+    return `<div class="heatmap-cell lv${lv}" title="${escapeHtml(tip)}"></div>`;
+  }).join('')).join('');
+
+  const projects = payload.projects || []; // 去重後的專案清單(不受 12 個月視窗限制,見 server.js scanClaudeUsage/scanCodexUsage)
+  const projectCount = payload.projectCount || projects.length;
+  // 欄數固定,但欄寬用 minmax(...,1fr) 撐滿卡片寬度,避免卡片比實際格子寬很多時右側留一大片空白
+  const colTemplate = `repeat(${weeks.length}, minmax(8px, 1fr))`;
+
+  const maxProjectTokens = projects.length ? projects[0].tokens : 0;
+  const projectRowsHtml = projects.length
+    ? projects.map((p, i) => {
+        const pct = maxProjectTokens > 0 ? Math.max(3, Math.round(p.tokens / maxProjectTokens * 100)) : 0;
+        return `
+        <div class="heatmap-project-row">
+          <span class="heatmap-project-rank">${i + 1}</span>
+          <span class="heatmap-project-name" title="${escapeHtml(p.label)}">${escapeHtml(p.label)}</span>
+          <div class="heatmap-project-bar-track"><div class="heatmap-project-bar-fill" style="width:${pct}%"></div></div>
+          <span class="heatmap-project-tokens">${fmtAxisTokens(p.tokens)}</span>
+        </div>`;
+      }).join('')
+    : `<div class="heatmap-project-empty">${t('heatmapNoProjects')}</div>`;
+
+  box.innerHTML = `
+    <div class="heatmap-inner">
+      <div class="heatmap-months" style="grid-template-columns:${colTemplate}">${monthsHtml}</div>
+      <div class="heatmap-body">
+        <div class="heatmap-wdays">${wdaysHtml}</div>
+        <div class="heatmap-grid" style="grid-template-columns:${colTemplate}">${cellsHtml}</div>
+      </div>
+      <div class="heatmap-footer">
+        <button type="button" class="heatmap-caption-btn" id="heatmapCaptionBtn" aria-expanded="${heatmapProjectsOpen}">
+          <span>${t('heatmapCaption', { n: projectCount })}</span>
+          <span class="heatmap-chev">${heatmapProjectsOpen ? '▲' : '▼'}</span>
+        </button>
+        <div class="heatmap-legend">
+          <span>${t('heatmapLess')}</span>
+          <div class="heatmap-cell lv0"></div><div class="heatmap-cell lv1"></div>
+          <div class="heatmap-cell lv2"></div><div class="heatmap-cell lv3"></div><div class="heatmap-cell lv4"></div>
+          <span>${t('heatmapMore')}</span>
+        </div>
+      </div>
+      ${heatmapProjectsOpen ? `<div class="heatmap-project-list">${projectRowsHtml}</div>` : ''}
+    </div>`;
+
+  const btn = box.querySelector('#heatmapCaptionBtn');
+  if (btn) btn.addEventListener('click', () => {
+    heatmapProjectsOpen = !heatmapProjectsOpen;
+    renderHeatmap(payload);
+  });
+}
+
+// ---------------- Token 流量圖(小時/日/週 三種粒度切換,可勾選 Claude/Codex) ----------------
+const TOKENFLOW_SEL_KEY = 'aiDash.tokenFlowSel.v1';
+function loadTokenFlowSel() {
+  try {
+    const s = JSON.parse(localStorage.getItem(TOKENFLOW_SEL_KEY));
+    if (s && typeof s === 'object') return { claude: s.claude !== false, codex: !!s.codex };
+  } catch {}
+  return { claude: true, codex: false }; // 預設只顯示 Claude(使用者目前沒在用付費 Codex)
+}
+let tokenFlowSel = loadTokenFlowSel();
+function saveTokenFlowSel() { localStorage.setItem(TOKENFLOW_SEL_KEY, JSON.stringify(tokenFlowSel)); }
+
+const TOKENFLOW_GRAN_KEY = 'aiDash.tokenFlowGran.v1';
+const TOKENFLOW_GRANS = ['hour', 'day', 'week'];
+function loadTokenFlowGran() {
+  const s = localStorage.getItem(TOKENFLOW_GRAN_KEY);
+  return TOKENFLOW_GRANS.includes(s) ? s : 'hour';
+}
+let tokenFlowGran = loadTokenFlowGran();
+function setTokenFlowGran(g) {
+  if (!TOKENFLOW_GRANS.includes(g) || g === tokenFlowGran) return;
+  tokenFlowGran = g;
+  localStorage.setItem(TOKENFLOW_GRAN_KEY, g);
+  renderTokenFlow();
+}
+// 依粒度組出 { label, claude, codex } 陣列;日/週來自 heatmapData.daysByProvider(伺服器端已依 provider 分開統計),
+// 小時來自 autoData.*.realtimeUsage.hourly(既有邏輯不變)
+function buildTokenFlowPoints(gran) {
+  if (gran === 'hour') {
+    const claudeHourly = (autoData.claude && autoData.claude.realtimeUsage && autoData.claude.realtimeUsage.hourly) || null;
+    const codexHourly = (autoData.codex && autoData.codex.realtimeUsage && autoData.codex.realtimeUsage.hourly) || null;
+    const points = [];
+    for (let hoursAgo = 23; hoursAgo >= 0; hoursAgo--) {
+      const hourDate = new Date(Date.now() - hoursAgo * 3600000);
+      points.push({
+        label: pad(hourDate.getHours()) + ':00',
+        claude: claudeHourly ? (claudeHourly[hoursAgo] || 0) : 0,
+        codex: codexHourly ? (codexHourly[hoursAgo] || 0) : 0,
+      });
+    }
+    return { points, noData: !claudeHourly && !codexHourly };
+  }
+  const byProv = heatmapData.daysByProvider || { claude: {}, codex: {} };
+  const noData = !Object.keys(byProv.claude || {}).length && !Object.keys(byProv.codex || {}).length;
+  if (gran === 'day') {
+    const points = [];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    for (let daysAgo = 13; daysAgo >= 0; daysAgo--) {
+      const d = new Date(today); d.setDate(d.getDate() - daysAgo);
+      const key = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+      points.push({
+        label: (d.getMonth() + 1) + '/' + d.getDate(),
+        claude: (byProv.claude && byProv.claude[key]) || 0,
+        codex: (byProv.codex && byProv.codex[key]) || 0,
+      });
+    }
+    return { points, noData };
+  }
+  // week:週日為週首,跟草皮圖(renderHeatmap)的分週方式一致
+  const points = [];
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const thisWeekStart = new Date(today); thisWeekStart.setDate(thisWeekStart.getDate() - thisWeekStart.getDay());
+  for (let weeksAgo = 11; weeksAgo >= 0; weeksAgo--) {
+    const wStart = new Date(thisWeekStart); wStart.setDate(wStart.getDate() - weeksAgo * 7);
+    let claude = 0, codex = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(wStart); d.setDate(d.getDate() + i);
+      const key = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+      claude += (byProv.claude && byProv.claude[key]) || 0;
+      codex += (byProv.codex && byProv.codex[key]) || 0;
+    }
+    points.push({ label: (wStart.getMonth() + 1) + '/' + wStart.getDate(), claude, codex });
+  }
+  return { points, noData };
+}
+
+const TOKENFLOW_TITLE_KEY = { hour: 'tokenFlowTitleHour', day: 'tokenFlowTitleDay', week: 'tokenFlowTitleWeek' };
+const TOKENFLOW_TAB_KEY = { hour: 'tokenFlowTabHour', day: 'tokenFlowTabDay', week: 'tokenFlowTabWeek' };
+function renderTokenFlow() {
+  const box = $('#tokenFlowCard');
+  if (!box) return;
+  const { points, noData } = buildTokenFlowPoints(tokenFlowGran);
+
+  const shownVals = [];
+  if (tokenFlowSel.claude) points.forEach(p => shownVals.push(p.claude));
+  if (tokenFlowSel.codex) points.forEach(p => shownVals.push(p.codex));
+  const max = Math.max(1, ...shownVals);
+  const niceMax = niceCeil(max); // 長條高度跟 Y 軸刻度都用同一個「整數關卡」當 100%,兩者才會對得上
+
+  const barHtml = (val, cls, label) => {
+    const pct = val > 0 ? Math.max(2, Math.round(val / niceMax * 100)) : 0;
+    const tip = t('tokenFlowTooltip', { time: label, tokens: (cls === 'claude' ? 'Claude ' : 'Codex ') + fmtTokenShort(val) });
+    return `<div class="tf-bar ${cls}" style="height:${pct}%" title="${escapeHtml(tip)}"></div>`;
+  };
+  const chartHtml = points.map(p => {
+    const bars = [];
+    if (tokenFlowSel.claude) bars.push(barHtml(p.claude, 'claude', p.label));
+    if (tokenFlowSel.codex) bars.push(barHtml(p.codex, 'codex', p.label));
+    return `<div class="tf-group">${bars.join('')}</div>`;
+  }).join('');
+  const axisHtml = points.map(p => `<span class="tf-axis-label">${p.label}</span>`).join('');
+
+  // Y 軸級距:0 到 niceMax(已無條件進位成整數關卡)平均分 4 格,由上而下排列;單位(tokens)只標在最上面那格,避免每格都重複
+  const yTicks = [niceMax, niceMax * 0.75, niceMax * 0.5, niceMax * 0.25, 0];
+  const yAxisHtml = yTicks.map(v => `<span>${fmtAxisTokens(v)}</span>`).join('');
+  const gridlinesHtml = yTicks.map(() => `<div></div>`).join('');
+
+  const tabsHtml = TOKENFLOW_GRANS.map(g =>
+    `<button type="button" class="tf-tab${g === tokenFlowGran ? ' active' : ''}" data-gran="${g}">${t(TOKENFLOW_TAB_KEY[g])}</button>`).join('');
+
+  box.innerHTML = `
+    <div class="tokenflow-toolbar">
+      <div class="tokenflow-title-group">
+        <span class="tokenflow-title">${t(TOKENFLOW_TITLE_KEY[tokenFlowGran])}</span>
+        <span class="tokenflow-unit">(${t('tokenFlowUnit')})</span>
+      </div>
+      <div class="tf-tabs">${tabsHtml}</div>
+      <div class="tokenflow-toggles">
+        <label><input type="checkbox" id="tfSelClaude" ${tokenFlowSel.claude ? 'checked' : ''}><span class="tf-dot claude"></span>Claude</label>
+        <label><input type="checkbox" id="tfSelCodex" ${tokenFlowSel.codex ? 'checked' : ''}><span class="tf-dot codex"></span>Codex</label>
+      </div>
+    </div>
+    ${noData ? `<div class="sub">${t('tokenFlowEmpty')}</div>` : `
+    <div class="tokenflow-body">
+      <div class="tokenflow-yaxis">${yAxisHtml}</div>
+      <div class="tokenflow-plot">
+        <div class="tokenflow-gridlines">${gridlinesHtml}</div>
+        <div class="tokenflow-chart">${chartHtml}</div>
+      </div>
+    </div>
+    <div class="tokenflow-axis-row">
+      <div class="tokenflow-yaxis-spacer"></div>
+      <div class="tokenflow-axis">${axisHtml}</div>
+    </div>`}`;
+
+  box.querySelectorAll('[data-gran]').forEach(b =>
+    b.addEventListener('click', () => setTokenFlowGran(b.dataset.gran)));
+
+  const onToggle = (key) => (e) => {
+    // 兩個都取消勾選的話畫面會整個空掉,還原成使用者剛取消的那一個,至少留一條線
+    if (!e.target.checked && !tokenFlowSel[key === 'claude' ? 'codex' : 'claude']) {
+      e.target.checked = true;
+      return;
+    }
+    tokenFlowSel[key] = e.target.checked;
+    saveTokenFlowSel();
+    renderTokenFlow();
+  };
+  $('#tfSelClaude').addEventListener('change', onToggle('claude'));
+  $('#tfSelCodex').addEventListener('change', onToggle('codex'));
 }
 
 function ltLabelText(rawLabel) {
@@ -776,6 +1466,54 @@ if (isMiniMode) {
   // wantId 要等 state 載入(load() 在下面才呼叫)後才能查,先記著,首次 renderMini() 再解析一次
   window.__miniWantId = wantId;
 }
+
+let miniPeekTimer = null;
+function setupMiniPeek() {
+  const miniEl = $('#miniLine');
+  const peekEl = $('#miniPeekCard');
+  if (!miniEl || !peekEl) return;
+  miniEl.addEventListener('mouseenter', () => {
+    clearTimeout(miniPeekTimer);
+    miniPeekTimer = setTimeout(() => {
+      if (!state.providers.length) return;
+      const p = state.providers[miniIndex];
+      const e = effective(p);
+      let ctxTxt = t('naText');
+      if (e.ctx && e.ctx.sessions && e.ctx.sessions[0]) {
+        ctxTxt = `${escapeHtml(e.ctx.sessions[0].label)}: ${fmtAxisTokens(e.ctx.sessions[0].tokens)} tokens`;
+      }
+      peekEl.innerHTML = `
+        <div style="font-weight:700;margin-bottom:4px;color:var(--accent);">${escapeHtml(p.name)}</div>
+        <div>${t('labelCurrentUsage')}: ${e.sess.usedPct != null ? t('remainPct', { pct: (100 - e.sess.usedPct).toFixed(1) }) : t('naText')}</div>
+        <div>${t('labelContextUsage')}: ${ctxTxt}</div>
+      `;
+      const rect = miniEl.getBoundingClientRect();
+      peekEl.style.left = Math.min(window.innerWidth - 270, Math.max(10, rect.left)) + 'px';
+      peekEl.style.top = (rect.bottom + 6) + 'px';
+      peekEl.classList.add('show');
+    }, 400);
+  });
+  miniEl.addEventListener('mouseleave', () => {
+    clearTimeout(miniPeekTimer);
+    peekEl.classList.remove('show');
+  });
+}
+if (isMiniMode) window.addEventListener('DOMContentLoaded', setupMiniPeek);
+
+// 小工具雙擊無縫切換 Full <-> Mini 模式
+if (document.documentElement.classList.contains('widget-mode')) {
+  window.addEventListener('dblclick', (e) => {
+    if (e.target.closest('button, input, select, textarea, summary, dialog, .drag-handle')) return;
+    const url = new URL(location.href);
+    if (url.searchParams.get('mini') === '1') {
+      url.searchParams.delete('mini');
+    } else {
+      url.searchParams.set('mini', '1');
+    }
+    location.href = url.toString();
+  });
+}
+
 function renderMini() {
   const box = $('#miniLine');
   if (!box) return;
@@ -807,22 +1545,39 @@ function renderMini() {
 
 function renderAll() {
   if (isMiniMode) { renderMini(); return; }
+  renderHeatmap(heatmapData);
+  renderTokenFlow();
   const box = $('#rows');
   if (!state.providers.length) {
     box.innerHTML = `<p class="empty-note">${t('emptyNote')}</p>`;
     return;
   }
   const lastIdx = state.providers.length - 1;
+  const now = Date.now();
   box.innerHTML = state.providers.map((p, idx) => {
     const e = effective(p);
     const dotCls = e.autoState === 'ok' ? 'ok' : (e.autoState === 'err' ? 'err' : '');
     const modeTxt = e.autoState === 'ok' ? t('modeAuto') :
                     e.autoState === 'err' ? t('modeAutoErr') :
                     e.autoState === 'wait' ? t('modeWait') : t('modeManual');
+    
+    // 高危臨界外框光圈 (Critical Ambient Glow) 檢測
+    const isCritical = (e.sess.usedPct != null && e.sess.usedPct >= 85) || 
+                       (e.sess.resetsAt && (e.sess.resetsAt - now) > 0 && (e.sess.resetsAt - now) <= 300000);
+    const criticalCls = isCritical ? ' critical-glow' : '';
+
     return `
-    <section class="row" data-row="${p.id}" draggable="true">
+    <section class="row${p.collapsed ? ' collapsed' : ''}${criticalCls}" data-row="${p.id}" draggable="true">
+      <div class="row-actions">
+        <button class="row-action-btn" data-action="refresh" data-pid="${p.id}" title="${t('refreshProvider')}">🔄</button>
+        <button class="row-action-btn" data-action="copy" data-pid="${p.id}" title="${t('copySummary')}">📋</button>
+      </div>
       <div class="prov">
-        <div class="prov-name"><span class="drag-handle" title="${t('dragTitle')}">⠿</span>${escapeHtml(p.name)}</div>
+        <div class="prov-name">
+          <span class="drag-handle" title="${t('dragTitle')}">⠿</span>
+          <button class="collapse-btn" data-toggle="${p.id}" title="${t(p.collapsed ? 'expandTitle' : 'collapseTitle')}">${p.collapsed ? '▸' : '▾'}</button>
+          ${escapeHtml(p.name)}
+        </div>
         <div class="prov-meta"><span class="dot ${dotCls}"></span>${modeTxt}</div>
         ${e.autoErr ? `<div class="prov-err">${escapeHtml(e.autoErr)}</div>` : ''}
         <button class="edit-btn" data-edit="${p.id}">${t('editBtnLabel')}</button>
@@ -831,13 +1586,13 @@ function renderAll() {
           <button data-move="down" data-pid="${p.id}" ${idx === lastIdx ? 'disabled' : ''} title="${t('moveDownTitle')}">▼</button>
         </div>
       </div>
+      ${p.collapsed ? '' : `
       <div class="metrics">
-        ${hpCell(t('labelCurrentUsage'), e.sess.usedPct, e.sess.src)}
-        ${cdCell(t('labelNextRespawn'), e.sess.resetsAt, e.sess.windowMin, e.sess.src, p.id, 'session')}
+        ${hpCell(t('labelCurrentUsage'), e.sess.usedPct, e.sess.src, e.sess.resetsAt)}
         ${ctxCell(e.ctx)}
-        ${hpCell(t('usageOfLabel', { label: ltLabelText(e.lt.label) }), e.lt.usedPct, e.lt.src)}
-        ${cdCell(t('respawnOfLabel', { label: ltLabelText(e.lt.label) }), e.lt.resetsAt, e.lt.windowMin, e.lt.src, p.id, 'longterm')}
-      </div>
+        ${tokenCell(e.realtimeUsage)}
+        ${hpCell(t('usageOfLabel', { label: ltLabelText(e.lt.label) }), e.lt.usedPct, e.lt.src, e.lt.resetsAt)}
+      </div>`}
     </section>`;
   }).join('');
 
@@ -845,8 +1600,39 @@ function renderAll() {
     b.addEventListener('click', () => openDialog(b.dataset.edit)));
   box.querySelectorAll('[data-move]').forEach(b =>
     b.addEventListener('click', () => moveProvider(b.dataset.pid, b.dataset.move)));
+  box.querySelectorAll('[data-toggle]').forEach(b =>
+    b.addEventListener('click', (ev) => { ev.stopPropagation(); toggleCollapse(b.dataset.toggle); }));
+  
+  // 快捷按鈕事件
+  box.querySelectorAll('[data-action]').forEach(b => {
+    b.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const action = b.dataset.action;
+      const pid = b.dataset.pid;
+      const p = state.providers.find(x => x.id === pid);
+      if (!p) return;
+      if (action === 'refresh') {
+        poll();
+      } else if (action === 'copy') {
+        const e = effective(p);
+        const sessStr = e.sess.usedPct != null ? `${(100 - e.sess.usedPct).toFixed(1)}%` : 'N/A';
+        const txt = `[${p.name}] Session: ${sessStr} | Reset: ${e.sess.resetsAt ? fmtAbs(e.sess.resetsAt) : 'N/A'}`;
+        navigator.clipboard.writeText(txt).then(() => {
+          toast(t('copiedToast', { name: p.name }));
+        });
+      }
+    });
+  });
+
   wireDragSort(box);
   tick();
+}
+function toggleCollapse(id) {
+  const p = state.providers.find(x => x.id === id);
+  if (!p) return;
+  p.collapsed = !p.collapsed;
+  save();
+  renderAll();
 }
 
 function moveProvider(id, dir) {
@@ -921,22 +1707,53 @@ function escapeHtml(s) {
 
 // ---------------- 每秒心跳:倒數條 + 手動模式到期翻新 ----------------
 const SOON_MS = 30 * 60000; // 剩不到 30 分鐘 → 外框開始發亮蓄力
+const RESET_MARK_SOON_MS = 2 * 3600000; // 距重置 2 小時內 → 「重置於 ...」變色提醒
+const prevCdState = {};
+
 function tick() {
   const now = Date.now();
   document.querySelectorAll('[data-cd]').forEach(el => {
+    const pid = el.dataset.pid;
+    const kind = el.dataset.kind;
+    const key = `${pid}-${kind}`;
     const resets = Number(el.dataset.resets);
     const winMs = Number(el.dataset.window) * 60000;
     const fill = el.querySelector('.fill');
     const text = el.querySelector('.bar-text');
-    if (!resets) { fill.style.width = '0%'; text.textContent = '—'; el.classList.remove('soon', 'ready'); return; }
+    const remainEl = el.parentElement.querySelector('.cd-remain');
+    if (!resets) {
+      fill.className = 'fill'; fill.style.width = '0%'; text.textContent = '—';
+      el.classList.remove('soon', 'ready');
+      if (remainEl) remainEl.textContent = '—';
+      prevCdState[key] = 'none';
+      return;
+    }
     const remain = resets - now;
     if (remain <= 0) {
       el.classList.remove('soon');
       el.classList.add('ready');
-      fill.style.width = '100%';
+      fill.className = 'fill r';
+      fill.style.width = '0%';
       text.textContent = t('readyText');
+      if (remainEl) remainEl.textContent = fmtDur(0);
+
+      // 觸發滿血重生爆光閃爍 & 桌面通知
+      if (prevCdState[key] === 'counting') {
+        el.classList.add('refill-flash');
+        setTimeout(() => el.classList.remove('refill-flash'), 1500);
+        const p = state.providers.find(x => x.id === pid);
+        const name = p ? p.name : pid;
+        if (notifyEnabled && 'Notification' in window && Notification.permission === 'granted') {
+          new Notification(t('notifyResetTitle', { name }), {
+            body: t('notifyResetBody'),
+            icon: 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 32 32\'%3E%3Crect width=\'32\' height=\'32\' rx=\'7\' fill=\'%230b1220\'/%3E%3Crect x=\'5\' y=\'17\' width=\'5\' height=\'10\' rx=\'1.5\' fill=\'%2322c55e\'/%3E%3C/svg%3E'
+          });
+        }
+      }
+      prevCdState[key] = 'ready';
       return;
     }
+    prevCdState[key] = 'counting';
     el.classList.remove('ready');
     if (remain <= SOON_MS) {
       el.classList.add('soon');
@@ -946,9 +1763,28 @@ function tick() {
       el.classList.remove('soon');
       el.style.removeProperty('--charge-speed');
     }
-    const frac = winMs > 0 ? Math.min(1, Math.max(0, 1 - remain / winMs)) : 0;
-    fill.style.width = (frac * 100).toFixed(2) + '%';
-    text.textContent = fmtDur(remain);
+    // 剩餘 % = 跟使用量條同步:越接近重置越空、色階(綠/黃/紅)套用同一組 hpClass 門檻
+    const remainPct = winMs > 0 ? Math.min(100, Math.max(0, remain / winMs * 100)) : 0;
+    const elapsedPct = 100 - remainPct;
+    fill.className = 'fill ' + hpClass(elapsedPct);
+    fill.style.width = remainPct.toFixed(2) + '%';
+    text.textContent = t('remainPct', { pct: remainPct.toFixed(remainPct < 10 ? 1 : 0) });
+    if (remainEl) remainEl.textContent = fmtDur(remain);
+  });
+
+  // 快重置提醒:距重置 2 小時內,「重置於 ...」字樣變色提醒(使用量條與倒數條的重置時間標註共用)
+  document.querySelectorAll('[data-reset-mark]').forEach(el => {
+    const resets = Number(el.dataset.resets);
+    const remain = resets - now;
+    el.classList.toggle('reset-soon', !!resets && remain > 0 && remain <= RESET_MARK_SOON_MS);
+  });
+
+  // 使用量條合併顯示的即時倒數文字(HH:MM:SS,見 hpCell 的 cdRemainHtml)
+  document.querySelectorAll('[data-cd-text]').forEach(el => {
+    const resets = Number(el.dataset.resets);
+    if (!resets) { el.textContent = '—'; return; }
+    const remain = resets - now;
+    el.textContent = remain <= 0 ? t('readyText') : fmtDur(remain);
   });
 
   // 手動模式:重置時間過了 → 自動推進到下一週期,使用率歸零
@@ -976,6 +1812,7 @@ async function poll() {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const j = await r.json();
     autoData = j.providers || {};
+    heatmapData = j.heatmap || { days: {}, projectCount: 0, daysByProvider: { claude: {}, codex: {} } };
     online = true;
     lastSync = Date.now();
   } catch {
@@ -1013,30 +1850,6 @@ function toast(msg, isErr) {
   toastTimer = setTimeout(() => { t.className = ''; }, 6000);
 }
 
-async function saveMinimaxKey(key) {
-  try {
-    const r = await fetch('api/minimax/key', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey: key, lang }),
-    });
-    const j = await r.json();
-    if (!j.ok) { toast(t('saveFailed', { err: j.error || 'HTTP ' + r.status }), true); return; }
-    if (j.cleared) {
-      toast(t('keyCleared'));
-      if (autoData.minimax) autoData.minimax.keySet = false;
-    } else if (j.test) {
-      autoData.minimax = j.test; // 立即反映,不等下一次輪詢
-      if (j.test.ok) toast(t('keySavedSuccess'));
-      else toast(t('keySavedTestFailed', { err: j.test.error || t('unknownError') }), true);
-    }
-    renderAll();
-    await poll();
-  } catch {
-    toast(t('offlineCantSave'), true);
-  }
-}
-
 function openDialog(pid) {
   editingId = pid;
   const p = state.providers.find(x => x.id === pid);
@@ -1053,16 +1866,6 @@ function openDialog(pid) {
   $('#fLtReset').value = toLocalInput(p.manual.longterm.resetsAt);
   $('#fLtWin').value = p.manual.longterm.windowMin ?? 10080;
   $('#delBtn').style.display = pid ? '' : 'none';
-
-  // MiniMax 專屬:網頁輸入 API Key(伺服器端加密儲存)
-  const isMinimax = p.autoKey === 'minimax';
-  $('#fKeyFs').style.display = isMinimax ? '' : 'none';
-  if (isMinimax) {
-    const mm = autoData.minimax;
-    $('#fApiKey').value = '';
-    $('#fApiKey').placeholder = (mm && mm.keySet) ? t('keyPlaceholderSet') : t('keyPlaceholderEmpty');
-    $('#clearKeyBtn').style.display = (mm && mm.keySet) ? '' : 'none';
-  }
   dlg.showModal();
 }
 
@@ -1079,15 +1882,6 @@ $('#dlgForm').addEventListener('submit', () => {
   p.manual.longterm.resetsAt = fromLocalInput($('#fLtReset').value);
   p.manual.longterm.windowMin = numOr($('#fLtWin').value, 10080);
   save(); renderAll();
-
-  const newKey = $('#fApiKey').value.trim();
-  if (p.autoKey === 'minimax' && newKey) saveMinimaxKey(newKey);
-});
-$('#clearKeyBtn').addEventListener('click', () => {
-  if (confirm(t('confirmClearKey'))) {
-    saveMinimaxKey('');
-    dlg.close();
-  }
 });
 $('#cancelBtn').addEventListener('click', () => dlg.close());
 $('#delBtn').addEventListener('click', () => {

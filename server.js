@@ -9,17 +9,15 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const crypto = require('crypto');
-const { execSync, execFile } = require('child_process');
+const { execSync } = require('child_process');
 
-const PORT = 3789;
+const PORT = process.env.PORT || 3789;
 const ROOT = __dirname;
 
 // ---------- 錯誤訊息 i18n:回傳 errCode+errParams,翻譯延後到回應序列化階段 ----------
 // 這樣快取(upstreamCache)裡存的是語言無關的代碼,不會被某次請求的語言污染下次請求。
 const SERR = {
   'zh-Hant': {
-    DECRYPT_FAIL: '解密失敗(硬體識別碼變更?)請在 config.json 重新填入 apiKey',
     NO_CLAUDE_CRED: '找不到 Claude 憑證 (~/.claude/.credentials.json)',
     CLAUDE_TOKEN_EXPIRED: 'Claude token 已過期,請執行任一 claude 指令讓它自動刷新',
     CONN_FAIL: '連線 {service} 失敗: {msg}',
@@ -32,19 +30,12 @@ const SERR = {
     CODEX_PARSE_FAIL: '無法解析回應',
     CODEX_FORMAT_UNEXPECTED: '回應格式不符預期',
     UNKNOWN_ERROR: '未知錯誤',
-    MINIMAX_NO_KEY: '尚未設定 API Key:點此列「✎ 編輯」直接輸入(會加密儲存)',
-    MINIMAX_STATUS_ERR: 'MiniMax: {msg}',
-    MINIMAX_UNKNOWN_FORMAT: '已連上但回應格式未知(原始回應已印在伺服器視窗)',
-    KIRO_NOT_LOGGED_IN: '找不到 kiro-cli 執行檔,請確認已安裝並登入',
-    KIRO_CLI_FAILED: '呼叫 kiro-cli 失敗: {msg}',
-    KIRO_FORMAT_UNEXPECTED: 'kiro-cli /usage 回應格式不符預期',
-    ANTIGRAVITY_NOT_RUNNING: '未偵測到執行中的 Antigravity CLI(agy);請在終端機執行 agy 並保持該視窗開啟',
+    ANTIGRAVITY_NOT_RUNNING: '未偵測到 Antigravity CLI(agy)或 Antigravity IDE;請開啟 IDE 或在終端機執行 agy',
     ANTIGRAVITY_PROBE_FAILED: '偵測到 agy CLI 執行中,但查詢用量失敗或回應格式不符預期',
     STALE_BACKOFF: '退避中(避免觸發限流),沿用舊資料',
     UNEXPECTED_EXCEPTION: '發生非預期錯誤: {msg}',
   },
   en: {
-    DECRYPT_FAIL: 'Decryption failed (hardware ID changed?) — please re-enter apiKey in config.json',
     NO_CLAUDE_CRED: 'Claude credentials not found (~/.claude/.credentials.json)',
     CLAUDE_TOKEN_EXPIRED: 'Claude token has expired — run any `claude` command to let it refresh automatically',
     CONN_FAIL: 'Failed to connect to {service}: {msg}',
@@ -57,13 +48,7 @@ const SERR = {
     CODEX_PARSE_FAIL: 'Failed to parse response',
     CODEX_FORMAT_UNEXPECTED: 'Response format did not match expectations',
     UNKNOWN_ERROR: 'Unknown error',
-    MINIMAX_NO_KEY: 'API Key not set yet — click "✎ Edit" on this row to enter it (it will be encrypted and stored)',
-    MINIMAX_STATUS_ERR: 'MiniMax: {msg}',
-    MINIMAX_UNKNOWN_FORMAT: 'Connected, but the response format is unknown (raw response printed to the server console)',
-    KIRO_NOT_LOGGED_IN: 'kiro-cli executable not found — please make sure it is installed and logged in',
-    KIRO_CLI_FAILED: 'Failed to run kiro-cli: {msg}',
-    KIRO_FORMAT_UNEXPECTED: 'kiro-cli /usage response did not match expectations',
-    ANTIGRAVITY_NOT_RUNNING: 'No running Antigravity CLI (agy) detected — run `agy` in a terminal and keep it open',
+    ANTIGRAVITY_NOT_RUNNING: 'No Antigravity CLI (agy) or Antigravity IDE detected — open the IDE or run `agy` in a terminal',
     ANTIGRAVITY_PROBE_FAILED: 'agy CLI is running, but fetching usage failed or the response did not match expectations',
     STALE_BACKOFF: 'Backing off to avoid rate limits — using cached data',
     UNEXPECTED_EXCEPTION: 'Unexpected error: {msg}',
@@ -82,106 +67,6 @@ function localizeResult(r, lang) {
   if (out.errCode) out.error = terr(out.errCode, lang, out.errParams);
   if (out.staleErrCode) out.staleError = terr(out.staleErrCode, lang, out.staleErrParams);
   return out;
-}
-
-// ---------- 機密加密:AES-256-GCM,金鑰由本機硬體識別碼衍生 ----------
-// 金鑰 = SHA-256(硬體識別碼),檔案綁定本機:複製到別台電腦無法解密。
-// 依作業系統取得識別碼來源不同(Windows:BIOS 序號+MachineGuid;macOS:IOPlatformUUID;
-// Linux:/etc/machine-id)。注意:這防的是「檔案被拷走」,擋不了在本機執行的程式 — 屬於
-// 綁定式保護而非絕對保密。
-let cachedMachineKey = null;
-function machineKey() {
-  if (cachedMachineKey) return cachedMachineKey;
-  const id = getHardwareId();
-  if (!id) throw new Error('無法取得本機硬體識別碼,無法加解密');
-  cachedMachineKey = crypto.createHash('sha256').update('aiDash-v1|' + id).digest();
-  return cachedMachineKey;
-}
-
-function getHardwareId() {
-  const plat = os.platform();
-  if (plat === 'win32') return getHardwareIdWin();
-  if (plat === 'darwin') return getHardwareIdMac();
-  return getHardwareIdLinux(); // Linux 及其他 Unix-like
-}
-
-function getHardwareIdWin() {
-  let bios = '', guid = '';
-  try {
-    bios = execSync(
-      'powershell -NoProfile -Command "(Get-CimInstance Win32_BIOS).SerialNumber"',
-      { timeout: 15000 }).toString().trim();
-  } catch {}
-  try {
-    const out = execSync(
-      'reg query "HKLM\\SOFTWARE\\Microsoft\\Cryptography" /v MachineGuid',
-      { timeout: 15000 }).toString();
-    const m = out.match(/MachineGuid\s+REG_SZ\s+(\S+)/);
-    if (m) guid = m[1];
-  } catch {}
-  return (bios || guid) ? (bios + '|' + guid) : '';
-}
-
-function getHardwareIdMac() {
-  try {
-    const out = execSync('ioreg -rd1 -c IOPlatformExpertDevice', { timeout: 15000 }).toString();
-    const m = out.match(/"IOPlatformUUID"\s*=\s*"([^"]+)"/);
-    if (m) return m[1];
-  } catch {}
-  return '';
-}
-
-function getHardwareIdLinux() {
-  for (const p of ['/etc/machine-id', '/var/lib/dbus/machine-id']) {
-    try {
-      const id = fs.readFileSync(p, 'utf8').trim();
-      if (id) return id;
-    } catch {}
-  }
-  return '';
-}
-
-const ENC_PREFIX = 'enc:v1:';
-function encryptSecret(plain) {
-  const iv = crypto.randomBytes(12);
-  const c = crypto.createCipheriv('aes-256-gcm', machineKey(), iv);
-  const data = Buffer.concat([c.update(plain, 'utf8'), c.final()]);
-  return ENC_PREFIX + Buffer.concat([iv, c.getAuthTag(), data]).toString('base64');
-}
-function decryptSecret(sealed) {
-  const buf = Buffer.from(sealed.slice(ENC_PREFIX.length), 'base64');
-  const d = crypto.createDecipheriv('aes-256-gcm', machineKey(), buf.subarray(0, 12));
-  d.setAuthTag(buf.subarray(12, 28));
-  return Buffer.concat([d.update(buf.subarray(28)), d.final()]).toString('utf8');
-}
-
-// 讀取 MiniMax key:發現純文字就地加密改寫(自我封印),之後只存密文
-function getMinimaxKey() {
-  if (process.env.MINIMAX_API_KEY) return { key: process.env.MINIMAX_API_KEY };
-  const cfgPath = path.join(ROOT, 'config.json');
-  const cfg = readJsonSafe(cfgPath);
-  if (!cfg || !cfg.minimax) return { key: '' };
-  const mm = cfg.minimax;
-  if (mm.apiKey && String(mm.apiKey).trim()) {
-    const plain = String(mm.apiKey).trim();
-    try {
-      mm.apiKeyEnc = encryptSecret(plain);
-      delete mm.apiKey;
-      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
-      console.log('[config] minimax.apiKey 已以 AES-256-GCM(硬體綁定金鑰)加密存回 config.json');
-    } catch (e) {
-      console.log('[config] 加密失敗,暫以明文使用: ' + e.message);
-    }
-    return { key: plain };
-  }
-  if (mm.apiKeyEnc && String(mm.apiKeyEnc).startsWith(ENC_PREFIX)) {
-    try {
-      return { key: decryptSecret(mm.apiKeyEnc) };
-    } catch {
-      return { key: '', errCode: 'DECRYPT_FAIL' };
-    }
-  }
-  return { key: '' };
 }
 
 function readJsonSafe(p) {
@@ -296,209 +181,6 @@ async function fetchCodex() {
   return { ok: false, ...(lastErr || { errCode: 'UNKNOWN_ERROR' }) };
 }
 
-// ---------- MiniMax (Token/Coding Plan remains 端點,需在 config.json 填 API Key) ----------
-function normalizeMinimaxWindow(o, defMin) {
-  if (!o || typeof o !== 'object') return null;
-  let used = num(o.used_percent ?? o.usage_percent ?? o.utilization ?? o.percent);
-  if (used == null) {
-    const usedAbs = num(o.used ?? o.used_tokens);
-    const total = num(o.total ?? o.limit ?? o.quota ?? o.total_tokens);
-    if (usedAbs != null && total > 0) used = usedAbs / total * 100;
-    else {
-      const remain = num(o.remains ?? o.remaining ?? o.left);
-      if (remain != null && total > 0) used = (1 - remain / total) * 100;
-    }
-  }
-  if (used == null) return null;
-  let resetsAt = null;
-  const rRaw = o.reset_at ?? o.reset_time ?? o.next_reset_time ?? o.refresh_time;
-  const r = num(rRaw);
-  if (r != null && r > 1e9) resetsAt = new Date(r > 1e12 ? r : r * 1000).toISOString();
-  else if (typeof rRaw === 'string' && rRaw) resetsAt = rRaw;
-  else if (num(o.reset_after_seconds) != null) {
-    resetsAt = new Date(Date.now() + o.reset_after_seconds * 1000).toISOString();
-  }
-  const winSec = num(o.limit_window_seconds ?? o.window_seconds);
-  return {
-    usedPct: Math.round(used * 10) / 10,
-    resetsAt,
-    windowMinutes: winSec != null ? Math.round(winSec / 60) : defMin,
-  };
-}
-
-function normalizeMinimax(data) {
-  // 實際格式(2026-07 實測):model_remains[] 依模型分列,百分比為「剩餘」
-  const arr = Array.isArray(data.model_remains) ? data.model_remains : null;
-  if (arr && arr.length) {
-    const m = arr.find(x => x && x.model_name === 'general') || arr[0];
-    let session = null;
-    if (num(m.current_interval_remaining_percent) != null) {
-      session = {
-        usedPct: Math.round((100 - m.current_interval_remaining_percent) * 10) / 10,
-        resetsAt: num(m.end_time) ? new Date(m.end_time).toISOString() : null,
-        windowMinutes: (num(m.end_time) != null && num(m.start_time) != null)
-          ? Math.round((m.end_time - m.start_time) / 60000) : 300,
-      };
-    }
-    let longterm = null;
-    if (num(m.current_weekly_remaining_percent) != null) {
-      longterm = {
-        usedPct: Math.round((100 - m.current_weekly_remaining_percent) * 10) / 10,
-        resetsAt: num(m.weekly_end_time) ? new Date(m.weekly_end_time).toISOString() : null,
-        windowMinutes: (num(m.weekly_end_time) != null && num(m.weekly_start_time) != null)
-          ? Math.round((m.weekly_end_time - m.weekly_start_time) / 60000) : 10080,
-      };
-    }
-    if (session || longterm) return { session, longterm, longtermLabel: '每週' };
-    return null;
-  }
-  // 通用備援:若日後格式再變,盡力猜常見鍵名
-  const root = data.data || data.remains || data;
-  if (!root || typeof root !== 'object') return null;
-  const session = normalizeMinimaxWindow(
-    root.five_hour ?? root.hourly ?? root.window_5h ?? root.primary_window, 300);
-  const longterm = normalizeMinimaxWindow(
-    root.weekly ?? root.seven_day ?? root.week ?? root.secondary_window, 10080);
-  if (!session && !longterm) return null;
-  return { session, longterm, longtermLabel: '每週' };
-}
-
-async function fetchMinimax() {
-  const { key: apiKey, errCode: keyErrCode } = getMinimaxKey();
-  const keySet = !!apiKey;
-  if (keyErrCode) return { ok: false, keySet, errCode: keyErrCode };
-  if (!apiKey) {
-    return { ok: false, keySet, errCode: 'MINIMAX_NO_KEY' };
-  }
-  let res;
-  try {
-    res = await fetch('https://www.minimax.io/v1/token_plan/remains', {
-      headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(10000),
-    });
-  } catch (e) {
-    return { ok: false, keySet, errCode: 'CONN_FAIL', errParams: { service: 'MiniMax', msg: e.message } };
-  }
-  const data = await res.json().catch(() => null);
-  if (!res.ok) return { ok: false, keySet, errCode: 'HTTP_ERR', errParams: { service: 'MiniMax', status: res.status } };
-  if (!data) return { ok: false, keySet, errCode: 'PARSE_FAIL', errParams: { service: 'MiniMax' } };
-  if (data.base_resp && data.base_resp.status_code) {
-    return { ok: false, keySet, errCode: 'MINIMAX_STATUS_ERR', errParams: { msg: data.base_resp.status_msg || 'status ' + data.base_resp.status_code } };
-  }
-  const norm = normalizeMinimax(data);
-  if (norm) return { ok: true, keySet, ...norm };
-  console.log('[minimax] 未知回應格式,請將以下內容回報以便修正解析器:');
-  console.log(JSON.stringify(data).slice(0, 2000));
-  return { ok: false, keySet, errCode: 'MINIMAX_UNKNOWN_FORMAT' };
-}
-
-// ---------- 讀取 POST body(上限 64KB) ----------
-function readBody(req, limit = 65536) {
-  return new Promise((resolve, reject) => {
-    let size = 0;
-    const chunks = [];
-    req.on('data', c => {
-      size += c.length;
-      if (size > limit) { reject(new Error('body too large')); req.destroy(); return; }
-      chunks.push(c);
-    });
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-    req.on('error', reject);
-  });
-}
-
-// ---------- Kiro(無公開 usage API;借用 kiro-cli 的 `/usage` 指令輸出,仿照 CodexBar 開源專案的做法) ----------
-// 2026-07-04:原本想走 `kiro-cli serve`(本機 ACP WebSocket,JSON-RPC over ws://127.0.0.1:8082)這條路,
-// 跟 Antigravity 的做法一樣。handshake(initialize → session/new)本身沒問題,但 session/new 之後的
-// account/getUsage 需要「反向」由我方(client)實作一個 auth callback(_kiro/auth/getAccessToken)
-// 才能繼續 —— 這已經超出「借用本機已登入行程的資料」的範圍,變成要自己實作一段認證代理邏輯。
-// 改查 steipete/CodexBar(docs/kiro.md)後發現更簡單的做法:直接呼叫
-// `kiro-cli chat --no-interactive "/usage"`,這是一個唯讀的 metadata 查詢(已實測連續呼叫兩次數字
-// 完全不變,確認不會消耗真實對話額度),輸出是帶 ANSI 顏色碼的純文字報表,去除 ANSI 碼後用正則解析。
-// 注意:`/usage` 前面的斜線在 Git Bash 手動測試時會被 MSYS 路徑轉換搞爛(誤判成 Unix 路徑),但
-// server.js 用 execFile 直接傳陣列參數給 CreateProcess,不會經過任何 shell,故不受影響。
-const KIRO_TIMEOUT_MS = 20000;
-function findKiroCliPath() {
-  const candidates = os.platform() === 'win32'
-    ? [process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Kiro-Cli', 'kiro-cli.exe') : null]
-    : [
-        path.join(os.homedir(), '.local', 'bin', 'kiro-cli'),
-        '/opt/homebrew/bin/kiro-cli',
-        '/usr/local/bin/kiro-cli',
-      ];
-  return candidates.filter(Boolean).find(p => { try { return fs.existsSync(p); } catch { return false; } }) || null;
-}
-// 注意:kiro-cli 把 TUI 報表印到 stderr,不是 stdout(實測確認,非常規但就是這樣),故兩者都收集
-function execFileAsync(file, args, opts) {
-  return new Promise((resolve, reject) => {
-    execFile(file, args, opts, (err, stdout, stderr) => {
-      if (err && !stdout && !stderr) { reject(err); return; }
-      resolve((stdout || '') + '\n' + (stderr || ''));
-    });
-  });
-}
-function stripAnsi(s) { return s.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, ''); }
-
-function normalizeKiroUsage(text) {
-  const resetMatch = text.match(/resets on (\d{4}-\d{2}-\d{2})/) || text.match(/resets on (\d{2})\/(\d{2})/);
-  const planMatch = text.match(/\|\s*([A-Z][A-Z0-9 ]*)\s*(?:\r?\n|$)/);
-  const creditsMatch = text.match(/\(([\d.]+)\s+of\s+([\d.]+)\s+covered in plan\)/i);
-  if (!creditsMatch) return null;
-  const used = num(parseFloat(creditsMatch[1]));
-  const total = num(parseFloat(creditsMatch[2]));
-  if (used == null || !total) return null;
-
-  let resetsAt = null;
-  if (resetMatch) {
-    if (resetMatch[1] && resetMatch[1].includes('-')) {
-      resetsAt = new Date(resetMatch[1] + 'T00:00:00').toISOString();
-    } else if (resetMatch[2]) {
-      const now = new Date();
-      let year = now.getFullYear();
-      const mm = parseInt(resetMatch[1], 10), dd = parseInt(resetMatch[2], 10);
-      let d = new Date(year, mm - 1, dd);
-      if (d.getTime() < now.getTime()) d = new Date(year + 1, mm - 1, dd);
-      resetsAt = d.toISOString();
-    }
-  }
-
-  const longterm = {
-    usedPct: Math.round((used / total) * 1000) / 10,
-    resetsAt,
-    windowMinutes: 43200,
-  };
-  const extra = [];
-  const bonusMatch = text.match(/Bonus credits:[^\n]*?([\d.]+)\/([\d.]+)\s+credits used(?:,\s*expires in (\d+)\s*days?)?/i);
-  if (bonusMatch) {
-    const bUsed = num(parseFloat(bonusMatch[1])), bTotal = num(parseFloat(bonusMatch[2]));
-    if (bUsed != null && bTotal) {
-      extra.push({
-        label: 'Bonus 額度',
-        usedPct: Math.round((bUsed / bTotal) * 1000) / 10,
-        resetsAt: bonusMatch[3] ? new Date(Date.now() + parseInt(bonusMatch[3], 10) * 86400000).toISOString() : null,
-        windowMinutes: null,
-      });
-    }
-  }
-  return { session: null, longterm, longtermLabel: '每月', extra, planName: planMatch ? planMatch[1].trim() : null };
-}
-
-async function fetchKiro() {
-  const exe = findKiroCliPath();
-  if (!exe) return { ok: false, errCode: 'KIRO_NOT_LOGGED_IN' };
-  let output;
-  try {
-    output = await execFileAsync(exe, ['chat', '--no-interactive', '/usage'], {
-      timeout: KIRO_TIMEOUT_MS, encoding: 'utf8', windowsHide: true,
-    });
-  } catch (e) {
-    return { ok: false, errCode: 'KIRO_CLI_FAILED', errParams: { msg: e.message } };
-  }
-  const norm = normalizeKiroUsage(stripAnsi(output));
-  if (!norm) return { ok: false, errCode: 'KIRO_FORMAT_UNEXPECTED' };
-  return { ok: true, ...norm };
-}
-
 // ---------- Antigravity(Google agentic CLI「agy」;無公開 usage API,借用 CLI 自己的本機 loopback 服務) ----------
 // 2026-07-04 探測過程(細節見 開發計畫.md):agy.exe 執行檔本身是加殼過的封閉二進位、雲端 usage 端點
 // (daily-cloudcode-pa.googleapis.com)的認證憑證存在 Windows 認證管理員裡且是不透明編碼,
@@ -512,47 +194,92 @@ async function fetchKiro() {
 // 使用者「請先在終端機執行 agy 保持連線」,不會主動幫使用者背著啟動一個 agy 行程(避免意外side effect
 // /行程生命週期管理複雜化,超出這個零依賴小工具的範圍)。目前只在 Windows 實機驗證過;macOS/Linux
 // 的 ps/lsof 分支沿用 CodexBar 文件裡的位置與指令,未實機測試。
-function findAgyListenPorts() {
+// 2026-07-17 擴充:除了 agy CLI,也偵測 Antigravity IDE 的 language server
+// (language_server_windows_x64.exe 等)。IDE 版的 RPC 需要 CSRF token,而 token 就寫在
+// 行程的啟動參數 --csrf_token 裡,放進 X-Codeium-Csrf-Token header 即可(IDE 2.1.1 實測
+// RetrieveUserQuotaSummary 可用,與 CodexBar 文件所述「IDE 會 404」不同,應為版本差異)。
+// 回傳 [{port, csrfToken}];csrfToken 為 null 代表 agy CLI(接受空 token)。
+const AGY_VBS_PATH = path.join(os.tmpdir(), 'aiDash-lsproc.vbs');
+const AGY_VBS_SRC = 'Set wmi = GetObject("winmgmts:\\\\.\\root\\cimv2")\r\n' +
+  'Set procs = wmi.ExecQuery("SELECT ProcessId, CommandLine FROM Win32_Process WHERE Name LIKE \'language_server_%\'")\r\n' +
+  'For Each p In procs\r\n' +
+  '  WScript.Echo p.ProcessId & "|" & p.CommandLine\r\n' +
+  'Next\r\n';
+function readLanguageServerCmdlines() {
+  try {
+    let stale = true;
+    try { stale = fs.readFileSync(AGY_VBS_PATH, 'utf8') !== AGY_VBS_SRC; } catch {}
+    if (stale) fs.writeFileSync(AGY_VBS_PATH, AGY_VBS_SRC);
+    return execSync('cscript //nologo "' + AGY_VBS_PATH + '"', { encoding: 'utf8', timeout: 10000 });
+  } catch { return ''; }
+}
+function findAgyTargets() {
+  const targets = [];
+  const pidTokens = {}; // pid -> csrf token(null = agy CLI,不需 token)
   try {
     if (os.platform() === 'win32') {
-      const tasklistOut = execSync('tasklist /FI "IMAGENAME eq agy.exe" /FO CSV /NH', { encoding: 'utf8', timeout: 3000 });
-      const pids = [...tasklistOut.matchAll(/"agy\.exe","(\d+)"/g)].map(m => m[1]);
+      try {
+        const tasklistOut = execSync('tasklist /FI "IMAGENAME eq agy.exe" /FO CSV /NH', { encoding: 'utf8', timeout: 3000 });
+        for (const m of tasklistOut.matchAll(/"agy\.exe","(\d+)"/g)) pidTokens[m[1]] = null;
+      } catch {}
+      try {
+        // wmic 在新版 Windows 已移除;EDR 會擋 node 子行程呼叫 powershell(Access is denied,
+        // 2026-07-17 實測本機如此)。改走 cscript + WMI VBS——實測可行。
+        const out = readLanguageServerCmdlines();
+        for (const line of out.split('\n')) {
+          const i = line.indexOf('|');
+          if (i < 1) continue;
+          const pid = line.slice(0, i).trim();
+          const tok = line.slice(i + 1).match(/--csrf_token[= ]+([0-9a-fA-F-]+)/);
+          if (/^\d+$/.test(pid) && tok) pidTokens[pid] = tok[1];
+        }
+      } catch {}
+      const pids = Object.keys(pidTokens);
       if (!pids.length) return [];
       const netstatOut = execSync('netstat -ano -p TCP', { encoding: 'utf8', timeout: 3000 });
-      const ports = new Set();
       for (const line of netstatOut.split('\n')) {
         const m = line.match(/^\s*TCP\s+127\.0\.0\.1:(\d+)\s+\S+\s+LISTENING\s+(\d+)\s*$/i);
-        if (m && pids.includes(m[2])) ports.add(m[1]);
+        if (m && pids.includes(m[2])) targets.push({ port: m[1], csrfToken: pidTokens[m[2]] });
       }
-      return [...ports];
+      return targets;
     }
-    // macOS/Linux:未實機驗證,沿用 CodexBar 文件記載的做法
+    // macOS/Linux:ps 輸出含完整命令列,agy 與 language server 一起掃(未實機驗證)
     const psOut = execSync('ps -ax -o pid=,command=', { encoding: 'utf8', timeout: 3000 });
-    const pids = psOut.split('\n')
-      .filter(l => /(^|[\\/])agy(\s|$)/.test(l.trim()))
-      .map(l => l.trim().split(/\s+/)[0]);
-    const ports = new Set();
-    for (const pid of pids) {
+    for (const l of psOut.split('\n')) {
+      const line = l.trim();
+      const pid = line.split(/\s+/)[0];
+      if (!/^\d+$/.test(pid)) continue;
+      if (/(^|[\\/])agy(\s|$)/.test(line)) {
+        pidTokens[pid] = null;
+      } else if (/language_server_[a-z0-9_]+/.test(line)) {
+        const tok = line.match(/--csrf_token[= ]+([0-9a-fA-F-]+)/);
+        if (tok) pidTokens[pid] = tok[1];
+      }
+    }
+    for (const pid of Object.keys(pidTokens)) {
       try {
         const lsofOut = execSync(`lsof -nP -iTCP -sTCP:LISTEN -a -p ${pid}`, { encoding: 'utf8', timeout: 3000 });
-        for (const m of lsofOut.matchAll(/:(\d+)\s+\(LISTEN\)/g)) ports.add(m[1]);
+        for (const m of lsofOut.matchAll(/:(\d+)\s+\(LISTEN\)/g)) targets.push({ port: m[1], csrfToken: pidTokens[pid] });
       } catch { /* 該 pid 查不到就跳過 */ }
     }
-    return [...ports];
+    return targets;
   } catch { return []; }
 }
 
-// 呼叫本機 agy 的 Connect-RPC 服務;loopback 自簽憑證,只在 127.0.0.1 才允許略過憑證驗證
-function postAgyLocalRpc(port, rpcPath, timeoutMs = 5000) {
+// 呼叫本機 agy/IDE 的 Connect-RPC 服務;loopback 自簽憑證,只在 127.0.0.1 才允許略過憑證驗證
+function postAgyLocalRpc(port, rpcPath, csrfToken, timeoutMs = 5000) {
   return new Promise((resolve, reject) => {
-    const body = '{}';
+    // metadata 為 CodexBar 記載的最小中繼資料;agy CLI 與 IDE 都接受
+    const body = JSON.stringify({ metadata: { ideName: 'antigravity', extensionName: 'antigravity', locale: 'en', ideVersion: '1.0.0' } });
+    const headers = {
+      'Content-Type': 'application/json',
+      'Connect-Protocol-Version': '1',
+      'Content-Length': Buffer.byteLength(body),
+    };
+    if (csrfToken) headers['X-Codeium-Csrf-Token'] = csrfToken;
     const req = https.request({
       host: '127.0.0.1', port, path: rpcPath, method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Connect-Protocol-Version': '1',
-        'Content-Length': Buffer.byteLength(body),
-      },
+      headers,
       rejectUnauthorized: false,
       timeout: timeoutMs,
     }, (res) => {
@@ -594,13 +321,13 @@ function normalizeAntigravityQuota(json) {
 }
 
 async function fetchAntigravity() {
-  const ports = findAgyListenPorts();
-  if (!ports.length) return { ok: false, errCode: 'ANTIGRAVITY_NOT_RUNNING' };
+  const targets = findAgyTargets();
+  if (!targets.length) return { ok: false, errCode: 'ANTIGRAVITY_NOT_RUNNING' };
   let lastErrCode = 'ANTIGRAVITY_PROBE_FAILED';
-  for (const port of ports) {
+  for (const { port, csrfToken } of targets) {
     let raw;
     try {
-      raw = await postAgyLocalRpc(port, '/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary');
+      raw = await postAgyLocalRpc(port, '/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary', csrfToken);
     } catch { continue; }
     let json;
     try { json = JSON.parse(raw); } catch { continue; }
@@ -641,9 +368,12 @@ function parseClaudeTail(fp) {
     if (tokens != null && cwd) break;
   }
   if (tokens == null) return null;
-  const CTX_WINDOW = 200000;
+  // 2026-07-24 改回傳原始 token 數,不再自行猜 context window 換算成 %:
+  // 這裡讀到的只是「上一輪送給 API 的 prompt 有多少 token」,實際 context window 上限跟
+  // auto-compact 觸發門檻都是 Claude Code 內部邏輯與帳號方案決定,本機沒有管道查證,寫死
+  // 200000 當分母算出來的 % 在啟用大 context window 的帳號上會嚴重失真(參考 2026-07-24 討論)。
   const label = cwd ? cwd.split(/[\\/]/).filter(Boolean).pop() : path.basename(fp).slice(0, 8);
-  return { label, usedPct: Math.min(100, Math.round(tokens / CTX_WINDOW * 1000) / 10) };
+  return { label, tokens };
 }
 
 function scanClaudeContext() {
@@ -666,30 +396,31 @@ function scanClaudeContext() {
     }
   }
   sessions.sort((a, b) => b.mtime - a.mtime);
-  return sessions.slice(0, 8).map(({ label, usedPct, ageMin }) => ({ label, usedPct, ageMin }));
+  return sessions.slice(0, 8).map(({ label, tokens, ageMin }) => ({ label, tokens, ageMin }));
 }
 
 // Codex CLI:~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl,token_count 事件帶累計 usage
+// 同 parseClaudeTail:不再算 %,直接回傳原始 token 數(model_context_window 有時缺欄位,
+// 猜一個 272000 當 fallback 一樣不可靠)
 function parseCodexTail(fp) {
   let lines;
   try { lines = tailLines(fp); } catch { return null; }
-  let usedPct = null, cwd = null;
+  let tokens = null, cwd = null;
   for (let i = lines.length - 1; i >= 0; i--) {
     let j;
     try { j = JSON.parse(lines[i]); } catch { continue; }
     const p = j.payload || {};
     if (!cwd && typeof p.cwd === 'string') cwd = p.cwd;
-    if (usedPct == null && p.type === 'token_count' && p.info) {
-      const win = num(p.info.model_context_window) || 272000;
+    if (tokens == null && p.type === 'token_count' && p.info) {
       const u = p.info.last_token_usage || p.info.total_token_usage || {};
-      const tokens = (u.input_tokens || 0) + (u.output_tokens || 0);
-      if (tokens > 0) usedPct = Math.min(100, Math.round(tokens / win * 1000) / 10);
+      const t = (u.input_tokens || 0) + (u.output_tokens || 0);
+      if (t > 0) tokens = t;
     }
-    if (usedPct != null && cwd) break;
+    if (tokens != null && cwd) break;
   }
-  if (usedPct == null) return null;
+  if (tokens == null) return null;
   const label = cwd ? cwd.split(/[\\/]/).filter(Boolean).pop() : path.basename(fp).replace(/\.jsonl$/, '').slice(-8);
-  return { label, usedPct };
+  return { label, tokens };
 }
 
 function scanCodexContext() {
@@ -711,7 +442,298 @@ function scanCodexContext() {
     }
   }
   sessions.sort((a, b) => b.mtime - a.mtime);
-  return sessions.slice(0, 8).map(({ label, usedPct, ageMin }) => ({ label, usedPct, ageMin }));
+  return sessions.slice(0, 8).map(({ label, tokens, ageMin }) => ({ label, tokens, ageMin }));
+}
+
+// ---------- 即時 Token 用量統計 (近 24 小時 / 1 小時) ----------
+function getClaudeRealtimeUsage() {
+  const root = path.join(os.homedir(), '.claude', 'projects');
+  let dirs;
+  try { dirs = fs.readdirSync(root, { withFileTypes: true }).filter(d => d.isDirectory()); } catch { return null; }
+  const now = Date.now();
+  const limit24h = now - 24 * 3600 * 1000;
+  
+  let totalInput = 0;
+  let totalOutput = 0;
+  let last1hInput = 0;
+  let last1hOutput = 0;
+  const hourly = new Array(24).fill(0); // index = 幾小時前(0=目前這小時,23=23小時前)
+
+  for (const d of dirs) {
+    const dir = path.join(root, d.name);
+    let files;
+    try { files = fs.readdirSync(dir).filter(f => f.endsWith('.jsonl')); } catch { continue; }
+    for (const f of files) {
+      const fp = path.join(dir, f);
+      let st;
+      try { st = fs.statSync(fp); } catch { continue; }
+      if (st.mtimeMs < limit24h) continue;
+
+      let content;
+      try { content = fs.readFileSync(fp, 'utf8'); } catch { continue; }
+      const lines = content.split('\n').filter(Boolean);
+
+      const requests = {}; // requestId -> { input, output, timestamp }
+
+      for (let i = 0; i < lines.length; i++) {
+        try {
+          const j = JSON.parse(lines[i]);
+          if (j.type === 'assistant' && j.message && j.message.usage && j.requestId) {
+            const u = j.message.usage;
+            const ts = j.timestamp ? new Date(j.timestamp).getTime() : st.mtimeMs;
+            if (ts >= limit24h) {
+              const input = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.cache_read_input_tokens || 0);
+              const output = u.output_tokens || 0;
+              requests[j.requestId] = { input, output, timestamp: ts };
+            }
+          }
+        } catch {}
+      }
+
+      for (const reqId in requests) {
+        const req = requests[reqId];
+        totalInput += req.input;
+        totalOutput += req.output;
+        if (req.timestamp >= now - 3600000) {
+          last1hInput += req.input;
+          last1hOutput += req.output;
+        }
+        const hoursAgo = Math.floor((now - req.timestamp) / 3600000);
+        if (hoursAgo >= 0 && hoursAgo < 24) hourly[hoursAgo] += req.input + req.output;
+      }
+    }
+  }
+
+  return {
+    last1h: { input: last1hInput, output: last1hOutput, total: last1hInput + last1hOutput },
+    last24h: { input: totalInput, output: totalOutput, total: totalInput + totalOutput },
+    hourly,
+  };
+}
+
+function getCodexRealtimeUsage() {
+  const root = path.join(os.homedir(), '.codex', 'sessions');
+  const now = Date.now();
+  const limit24h = now - 24 * 3600 * 1000;
+  
+  let totalInput = 0;
+  let totalOutput = 0;
+  let last1hInput = 0;
+  let last1hOutput = 0;
+  const hourly = new Array(24).fill(0); // index = 幾小時前(0=目前這小時,23=23小時前)
+
+  for (const t of [now, now - 86400000]) {
+    const d = new Date(t);
+    const dir = path.join(root, String(d.getFullYear()), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0'));
+    let files;
+    try { files = fs.readdirSync(dir).filter(f => f.endsWith('.jsonl')); } catch { continue; }
+    for (const f of files) {
+      const fp = path.join(dir, f);
+      let st;
+      try { st = fs.statSync(fp); } catch { continue; }
+      if (st.mtimeMs < limit24h) continue;
+
+      let content;
+      try { content = fs.readFileSync(fp, 'utf8'); } catch { continue; }
+      const lines = content.split('\n').filter(Boolean);
+
+      for (let i = 0; i < lines.length; i++) {
+        try {
+          const j = JSON.parse(lines[i]);
+          const p = j.payload || {};
+          if (p.type === 'token_count' && p.info && p.info.last_token_usage) {
+            const ts = j.timestamp ? new Date(j.timestamp).getTime() : st.mtimeMs;
+            if (ts >= limit24h) {
+              const u = p.info.last_token_usage;
+              const input = u.input_tokens || 0;
+              const output = u.output_tokens || 0;
+
+              totalInput += input;
+              totalOutput += output;
+              if (ts >= now - 3600000) {
+                last1hInput += input;
+                last1hOutput += output;
+              }
+              const hoursAgo = Math.floor((now - ts) / 3600000);
+              if (hoursAgo >= 0 && hoursAgo < 24) hourly[hoursAgo] += input + output;
+            }
+          }
+        } catch {}
+      }
+    }
+  }
+
+  return {
+    last1h: { input: last1hInput, output: last1hOutput, total: last1hInput + last1hOutput },
+    last24h: { input: totalInput, output: totalOutput, total: totalInput + totalOutput },
+    hourly,
+  };
+}
+
+let tokenCache = {
+  at: 0,
+  data: null
+};
+function getRealtimeTokensCached() {
+  const now = Date.now();
+  if (tokenCache.data && now - tokenCache.at < 30000) {
+    return tokenCache.data;
+  }
+  let claude = null;
+  let codex = null;
+  try { claude = getClaudeRealtimeUsage(); } catch {}
+  try { codex = getCodexRealtimeUsage(); } catch {}
+  
+  tokenCache.at = now;
+  tokenCache.data = { claude, codex };
+  return tokenCache.data;
+}
+
+// ---------- 使用量草皮圖(近 12 個月每日 token 用量,合併 Claude + Codex) ----------
+// 只讀本地日誌就能算,Antigravity 沒有本地紀錄可掃,故不計入。
+// 掃過去一年份量較大,快取拉長到 30 分鐘(草皮圖本來就不需要逐秒更新)。
+function localDateStr(ms) {
+  const d = new Date(ms);
+  return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+}
+
+// 2026-07-21:草皮圖(每日 token,近 12 個月)跟專案清單(去重 cwd + 各自 token 總量,
+// 不設 366 天上限)其實要讀同一批檔案,原本分兩三個函式各掃一次很浪費,合併成單一 pass。
+function normalizeProjectPath(p) {
+  if (typeof p !== 'string' || !p.trim()) return null;
+  let s = p.trim().replace(/\\/g, '/').replace(/\/+$/, '');
+  if (!s) return null;
+  if (os.platform() === 'win32') s = s.toLowerCase(); // Windows 檔案系統不分大小寫,避免同路徑算成兩個專案
+  return s;
+}
+function projectLabel(p) {
+  return p.replace(/\\/g, '/').split('/').filter(Boolean).pop() || p;
+}
+function touchProject(projMap, cwd, tokens, mtimeMs) {
+  const norm = normalizeProjectPath(cwd);
+  if (!norm) return;
+  if (!projMap[norm]) projMap[norm] = { label: projectLabel(cwd), tokens: 0, lastActivity: 0 };
+  projMap[norm].tokens += tokens;
+  if (mtimeMs > projMap[norm].lastActivity) projMap[norm].lastActivity = mtimeMs;
+}
+
+function scanClaudeUsage(dayMap, projMap, sinceMs) {
+  const root = path.join(os.homedir(), '.claude', 'projects');
+  let dirs;
+  try { dirs = fs.readdirSync(root, { withFileTypes: true }).filter(d => d.isDirectory()); } catch { return; }
+  for (const d of dirs) {
+    const dir = path.join(root, d.name);
+    let files;
+    try { files = fs.readdirSync(dir).filter(f => f.endsWith('.jsonl')); } catch { continue; }
+    for (const f of files) {
+      const fp = path.join(dir, f);
+      let st;
+      try { st = fs.statSync(fp); } catch { continue; }
+
+      let content;
+      try { content = fs.readFileSync(fp, 'utf8'); } catch { continue; }
+
+      // 同一 requestId 在串流中會重複出現多行,usage 數字後面的行才是完整值,故用物件覆寫取最後一筆
+      const requests = {};
+      let cwd = null;
+      for (const line of content.split('\n')) {
+        if (!line) continue;
+        let j;
+        try { j = JSON.parse(line); } catch { continue; }
+        if (!cwd && typeof j.cwd === 'string' && j.cwd) cwd = j.cwd;
+        if (j.type !== 'assistant' || !j.message || !j.message.usage || !j.requestId) continue;
+        const u = j.message.usage;
+        const ts = j.timestamp ? new Date(j.timestamp).getTime() : st.mtimeMs;
+        const tokens = (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0) +
+          (u.cache_read_input_tokens || 0) + (u.output_tokens || 0);
+        requests[j.requestId] = { tokens, ts };
+      }
+      let fileTokens = 0;
+      for (const rid in requests) {
+        const r = requests[rid];
+        fileTokens += r.tokens;
+        if (r.ts >= sinceMs) { // 草皮圖只收近 12 個月
+          const day = localDateStr(r.ts);
+          dayMap[day] = (dayMap[day] || 0) + r.tokens;
+        }
+      }
+      if (cwd) touchProject(projMap, cwd, fileTokens, st.mtimeMs); // 專案清單不設時間上限
+    }
+  }
+}
+
+function scanCodexUsage(dayMap, projMap, sinceMs) {
+  const root = path.join(os.homedir(), '.codex', 'sessions');
+  let years;
+  try { years = fs.readdirSync(root, { withFileTypes: true }).filter(d => d.isDirectory()); } catch { return; }
+  for (const y of years) {
+    const yDir = path.join(root, y.name);
+    let months;
+    try { months = fs.readdirSync(yDir, { withFileTypes: true }).filter(d => d.isDirectory()); } catch { continue; }
+    for (const m of months) {
+      const mDir = path.join(yDir, m.name);
+      let days;
+      try { days = fs.readdirSync(mDir, { withFileTypes: true }).filter(d => d.isDirectory()); } catch { continue; }
+      for (const dd of days) {
+        const dDir = path.join(mDir, dd.name);
+        let files;
+        try { files = fs.readdirSync(dDir).filter(f => f.endsWith('.jsonl')); } catch { continue; }
+        const dayKey = y.name + '-' + m.name + '-' + dd.name;
+        const dayTs = new Date(Number(y.name), Number(m.name) - 1, Number(dd.name)).getTime();
+        let dayTotal = 0;
+        for (const f of files) {
+          const fp = path.join(dDir, f);
+          let content;
+          try { content = fs.readFileSync(fp, 'utf8'); } catch { continue; }
+          let cwd = null;
+          let fileTokens = 0;
+          for (const line of content.split('\n')) {
+            if (!line) continue;
+            let j;
+            try { j = JSON.parse(line); } catch { continue; }
+            const p = j.payload || {};
+            if (!cwd && typeof p.cwd === 'string' && p.cwd) cwd = p.cwd;
+            if (p.type === 'token_count' && p.info && p.info.last_token_usage) {
+              const u = p.info.last_token_usage;
+              fileTokens += (u.input_tokens || 0) + (u.output_tokens || 0);
+            }
+          }
+          dayTotal += fileTokens;
+          if (cwd) {
+            let st;
+            try { st = fs.statSync(fp); } catch { st = null; }
+            touchProject(projMap, cwd, fileTokens, st ? st.mtimeMs : dayTs);
+          }
+        }
+        if (dayTotal > 0 && dayTs >= sinceMs - 86400000) dayMap[dayKey] = (dayMap[dayKey] || 0) + dayTotal;
+      }
+    }
+  }
+}
+
+const HEATMAP_CACHE_MS = 30 * 60000;
+let heatmapCache = { at: 0, data: null };
+function getHeatmapCached() {
+  const now = Date.now();
+  if (heatmapCache.data && now - heatmapCache.at < HEATMAP_CACHE_MS) return heatmapCache.data;
+  // Claude/Codex 分開各自的 dayMap,才能讓前端的日/週累積圖跟小時圖一樣可以分別勾選;
+  // 草皮圖用的 days 仍是兩者加總(見下方合併)
+  const claudeDayMap = {};
+  const codexDayMap = {};
+  const projMap = {};
+  const sinceMs = now - 366 * 86400000;
+  try { scanClaudeUsage(claudeDayMap, projMap, sinceMs); } catch {}
+  try { scanCodexUsage(codexDayMap, projMap, sinceMs); } catch {}
+  const dayMap = {};
+  for (const k in claudeDayMap) dayMap[k] = (dayMap[k] || 0) + claudeDayMap[k];
+  for (const k in codexDayMap) dayMap[k] = (dayMap[k] || 0) + codexDayMap[k];
+  const projects = Object.values(projMap).sort((a, b) => b.tokens - a.tokens);
+  const data = {
+    days: dayMap, projectCount: projects.length, projects,
+    daysByProvider: { claude: claudeDayMap, codex: codexDayMap },
+  };
+  heatmapCache = { at: now, data };
+  return data;
 }
 
 // ---------- 上游快取與退避:降低撞到 Anthropic/Codex 429 限流的機率 ----------
@@ -756,51 +778,29 @@ const server = http.createServer(async (req, res) => {
 
   if (url === '/api/usage') {
     const lang = reqLang(req);
-    const [claudeRaw, codexRaw, minimaxRaw, kiroRaw, antigravityRaw] = await Promise.all([
+    const [claudeRaw, codexRaw, antigravityRaw] = await Promise.all([
       cachedFetch('claude', fetchClaude),
       cachedFetch('codex', fetchCodex),
-      cachedFetch('minimax', fetchMinimax),
-      cachedFetch('kiro', fetchKiro),
       cachedFetch('antigravity', fetchAntigravity),
     ]);
     // 翻譯結果一律用複本(localizeResult 已 shallow-copy),避免把某次請求的語言寫回共用快取物件
     const claude = localizeResult(claudeRaw, lang);
     const codex = localizeResult(codexRaw, lang);
-    const minimax = localizeResult(minimaxRaw, lang);
-    const kiro = localizeResult(kiroRaw, lang);
     const antigravity = localizeResult(antigravityRaw, lang);
     // Context 掃描是本機檔案操作,便宜,每次請求即時計算(不論配額查詢成敗)
     try { claude.context = scanClaudeContext(); } catch { claude.context = []; }
     try { codex.context = scanCodexContext(); } catch { codex.context = []; }
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify({ time: new Date().toISOString(), providers: { claude, codex, minimax, kiro, antigravity } }));
-    return;
-  }
 
-  if (url === '/api/minimax/key' && req.method === 'POST') {
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    try {
-      const body = JSON.parse(await readBody(req) || '{}');
-      const key = String(body.apiKey || '').trim();
-      const cfgPath = path.join(ROOT, 'config.json');
-      const cfg = readJsonSafe(cfgPath) || {};
-      cfg.minimax = cfg.minimax || {};
-      delete cfg.minimax.apiKey; // 永不保留明文欄位
-      if (!key) {
-        delete cfg.minimax.apiKeyEnc;
-        fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
-        res.writeHead(200); res.end(JSON.stringify({ ok: true, cleared: true }));
-        return;
-      }
-      cfg.minimax.apiKeyEnc = encryptSecret(key);
-      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
-      const testRaw = await fetchMinimax(); // 立即驗證,結果回報前端
-      upstreamCache.minimax = { at: Date.now(), result: testRaw }; // 同步快取(存語言無關的原始結果),清除舊 key 的殘留結果
-      const test = localizeResult(testRaw, body.lang === 'en' ? 'en' : 'zh-Hant');
-      res.writeHead(200); res.end(JSON.stringify({ ok: true, test }));
-    } catch (e) {
-      res.writeHead(400); res.end(JSON.stringify({ ok: false, error: String(e && e.message || e) }));
-    }
+    // 即時 Token 用量統計
+    const rt = getRealtimeTokensCached();
+    if (claude) claude.realtimeUsage = rt.claude;
+    if (codex) codex.realtimeUsage = rt.codex;
+
+    // 草皮圖:近 12 個月每日 token 用量(合併 Claude + Codex,與個別提供商無關)
+    const heatmap = getHeatmapCached();
+
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ time: new Date().toISOString(), providers: { claude, codex, antigravity }, heatmap }));
     return;
   }
 
@@ -825,5 +825,3 @@ if (require.main === module) {
     console.log('按 Ctrl+C 結束');
   });
 }
-
-module.exports = { encryptSecret, decryptSecret, getMinimaxKey };
